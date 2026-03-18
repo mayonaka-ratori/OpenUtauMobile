@@ -27,7 +27,7 @@ Recommended 9件: 全完了 (ATO-02, EP-03 は Blocker 同時修正。EP-04 は 
 Low 3件 (GP-03, DN-01, IFO-01): Phase 2 以降。
 ### Review #2
 Blocker 4件 (EP-01, EP-05, EP-08, SS-01): 修正完了 + EP-03 同時修正
-Recommended 8件: EP-04(コメント追加), EP-06, EP-07, GP-01, ATO-01, ATO-02, ATO-03 を修正予定。OP-01 は Phase 3 送り。
+Recommended 8件: 7件完了 (EP-04, EP-06, EP-07, GP-01, ATO-01, ATO-02, ATO-03)。OP-01 は Phase 3 送り。
 Low 5件: Phase 2 以降。
 
 ## Backlog
