@@ -63,6 +63,7 @@ namespace OpenUtauMobile.Views.DrawableObjects
         };
         // Lyric font: Size and Typeface set before each draw loop
         private readonly SKFont _lyricsFont = new();
+        private bool _disposed = false;
 
         public DrawableNotes(SKCanvas canvas, UVoicePart part, EditViewModel viewModel, SKColor notesColor)
         {
@@ -233,13 +234,15 @@ namespace OpenUtauMobile.Views.DrawableObjects
 
         public void Dispose()
         {
-            GC.SuppressFinalize(this);
+            if (_disposed) return;
+            _disposed = true;
             _notesFillPaint.Dispose();
             _selectedNotePaint.Dispose();
             _lyricPaint.Dispose();
             _lyricsFont.Dispose();
             _trianglePath.Dispose();
             // _handlePaint, _trianglePaint are static — not disposed per-instance
+            GC.SuppressFinalize(this);
         }
     }
 }
