@@ -17,7 +17,6 @@ using Serilog;
 using SkiaSharp;
 using System.Diagnostics;
 using System.Reactive.Disposables;
-using System.Reactive.Linq;
 using Preferences = OpenUtau.Core.Util.Preferences;
 using DynamicData;
 using OpenUtau.Core.Format;
@@ -221,8 +220,6 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         // 订阅钢琴卷帘TransformerX方向更新事件
         _viewModel.WhenAnyValue(x => x.PianoRollTransformer.PanX,
             x => x.PianoRollTransformer.ZoomX)
-            .Throttle(TimeSpan.FromMilliseconds(16.6)) // 限制更新频率为60FPS
-            .ObserveOn(RxApp.MainThreadScheduler) // 确保在主线程执行
             .Subscribe(_ =>
             {
                 PianoRollCanvas.InvalidateSurface();
@@ -1709,6 +1706,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
     /// <param name="e"></param>
     private void TrackCanvas_PaintSurface(object sender, SkiaSharp.Views.Maui.SKPaintSurfaceEventArgs e)
     {
+#if DEBUG
+        var _sw = PaintSurfaceProfiler.Start();
+#endif
         // 清空画布
         e.Surface.Canvas.Clear(SKColors.Transparent);
         if (e.Surface.Canvas.DeviceClipBounds.Height < 5) // 没办法，提高性能
@@ -1747,6 +1747,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             _viewModel.DrawableParts.Add(drawablePart);
             drawablePart.Draw();
         }
+#if DEBUG
+        PaintSurfaceProfiler.End(_sw, nameof(TrackCanvas));
+#endif
     }
 
 
@@ -1777,6 +1780,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 
     private void PianoRollCanvas_PaintSurface(object sender, SkiaSharp.Views.Maui.SKPaintSurfaceEventArgs e)
     {
+#if DEBUG
+        var _sw = PaintSurfaceProfiler.Start();
+#endif
         // 清空画布
         e.Surface.Canvas.Clear(SKColors.Transparent);
         if (e.Surface.Canvas.DeviceClipBounds.Height < 5)
@@ -1807,6 +1813,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             _drawableNotes.Draw();
             _viewModel.EditingNotes = _drawableNotes;
         }
+#if DEBUG
+        PaintSurfaceProfiler.End(_sw, nameof(PianoRollCanvas));
+#endif
     }
 
     private void PianoRollCanvas_Touch(object sender, SkiaSharp.Views.Maui.SKTouchEventArgs e)
@@ -1817,16 +1826,25 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 
     private void PlaybackPosCanvas_PaintSurface(object sender, SkiaSharp.Views.Maui.SKPaintSurfaceEventArgs e)
     {
+#if DEBUG
+        var _sw = PaintSurfaceProfiler.Start();
+#endif
         SKCanvas Canvas = e.Surface.Canvas;
         // 清空画布
         Canvas.Clear(SKColors.Transparent);
         // 计算位置
         float x = (float)(_viewModel.PlayPosTick * _viewModel.TrackTransformer.ZoomX + _viewModel.TrackTransformer.PanX);
         Canvas.DrawLine(x, 0f, x, Canvas.DeviceClipBounds.Height, _playbackPosPaint);
+#if DEBUG
+        PaintSurfaceProfiler.End(_sw, nameof(PlaybackPosCanvas));
+#endif
     }
 
     private void PianoKeysCanvas_PaintSurface(object sender, SkiaSharp.Views.Maui.SKPaintSurfaceEventArgs e)
     {
+#if DEBUG
+        var _sw = PaintSurfaceProfiler.Start();
+#endif
         SKCanvas Canvas = e.Surface.Canvas;
         // 清空画布
         Canvas.Clear();
@@ -1864,6 +1882,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         }
         // 恢复变换矩阵
         //Canvas.SetMatrix(originalMatrix);
+#if DEBUG
+        PaintSurfaceProfiler.End(_sw, nameof(PianoKeysCanvas));
+#endif
     }
 
     private void PianoKeysCanvas_Touch(object sender, SkiaSharp.Views.Maui.SKTouchEventArgs e)
@@ -1932,7 +1953,10 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 
     private void TimeLineCanvas_PaintSurface(object sender, SkiaSharp.Views.Maui.SKPaintSurfaceEventArgs e)
     {
-
+#if DEBUG
+        var _sw = PaintSurfaceProfiler.Start();
+        PaintSurfaceProfiler.End(_sw, nameof(TimeLineCanvas));
+#endif
     }
 
     private void TimeLineCanvas_Touch(object sender, SkiaSharp.Views.Maui.SKTouchEventArgs e)
@@ -1942,6 +1966,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 
     private void PlaybackTickBackgroundCanvas_PaintSurface(object sender, SkiaSharp.Views.Maui.SKPaintSurfaceEventArgs e)
     {
+#if DEBUG
+        var _sw = PaintSurfaceProfiler.Start();
+#endif
         // 清空画布
         e.Surface.Canvas.Clear(ThemeColorsManager.Current.TrackBackground);
         // 设置画布变换
@@ -1950,6 +1977,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         _drawableTickBackground ??= new DrawableTickBackground(e.Surface.Canvas, _viewModel);
         _drawableTickBackground.Canvas = e.Surface.Canvas;
         _drawableTickBackground.Draw();
+#if DEBUG
+        PaintSurfaceProfiler.End(_sw, nameof(PlaybackTickBackgroundCanvas));
+#endif
     }
 
     private void ButtonRemovePart_Clicked(object sender, EventArgs e)
@@ -1968,6 +1998,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 
     private void PianoRollTickBackgroundCanvas_PaintSurface(object sender, SkiaSharp.Views.Maui.SKPaintSurfaceEventArgs e)
     {
+#if DEBUG
+        var _sw = PaintSurfaceProfiler.Start();
+#endif
         // 清空画布
         e.Surface.Canvas.Clear(SKColors.Transparent);
         if (e.Surface.Canvas.DeviceClipBounds.Height < 5)
@@ -1981,6 +2014,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         _drawablePianoRollTickBackground ??= new DrawablePianoRollTickBackground(e.Surface.Canvas, _viewModel);
         _drawablePianoRollTickBackground.Canvas = e.Surface.Canvas;
         _drawablePianoRollTickBackground.Draw();
+#if DEBUG
+        PaintSurfaceProfiler.End(_sw, nameof(PianoRollTickBackgroundCanvas));
+#endif
     }
 
     private static bool IsOpenGLESSupported()
@@ -2000,6 +2036,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 
     private void PianoRollKeysBackgroundCanvas_PaintSurface(object sender, SkiaSharp.Views.Maui.SKPaintSurfaceEventArgs e)
     {
+#if DEBUG
+        var _sw = PaintSurfaceProfiler.Start();
+#endif
         SKCanvas canvas = e.Surface.Canvas;
         canvas.Clear(ThemeColorsManager.Current.WhitePianoRollBackground);
         //canvas.SetMatrix(_viewModel.GetTransformMatrix());
@@ -2018,7 +2057,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             }
             y += heightPerPianoKey * _viewModel.PianoRollTransformer.ZoomY;
         }
-
+#if DEBUG
+        PaintSurfaceProfiler.End(_sw, nameof(PianoRollKeysBackgroundCanvas));
+#endif
     }
 
     private async void ButtonRenamePart_Clicked(object sender, EventArgs e)
@@ -2209,6 +2250,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
     /// <param name="e"></param>
     private void PianoRollPitchCanvas_PaintSurface(object sender, SkiaSharp.Views.Maui.SKPaintSurfaceEventArgs e)
     {
+#if DEBUG
+        var _sw = PaintSurfaceProfiler.Start();
+#endif
         SKCanvas canvas = e.Surface.Canvas;
         canvas.Clear();
         if (_viewModel.EditingPart == null || _viewModel.EditingPart is not UVoicePart)
@@ -2260,6 +2304,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         {
             canvas.DrawCircle(TouchingPoint, 10f, _touchCursorPaint);
         }
+#if DEBUG
+        PaintSurfaceProfiler.End(_sw, nameof(PianoRollPitchCanvas));
+#endif
     }
 
     /// <summary>
@@ -2288,6 +2335,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+#if DEBUG
+        PaintSurfaceProfiler.DumpStats();
+#endif
         Debug.WriteLine("\n\n==============EditPage Dispose===============\n\n");
         PlaybackTimer.Stop();
         PlaybackTimer.Tick -= _playbackTimerTickHandler;
@@ -2568,6 +2618,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
     /// <param name="e"></param>
     private void PhonemeCanvas_PaintSurface(object sender, SkiaSharp.Views.Maui.SKPaintSurfaceEventArgs e)
     {
+#if DEBUG
+        var _sw = PaintSurfaceProfiler.Start();
+#endif
         SKCanvas canvas = e.Surface.Canvas;
         // 清空画布
         canvas.Clear();
@@ -2653,6 +2706,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                 canvas.DrawText(displayPhoneme, x + 2, 15 * (float)_viewModel.Density, _textFont12, ThemeColorsManager.Current.PhonemeTextPaint);
             }
         }
+#if DEBUG
+        PaintSurfaceProfiler.End(_sw, nameof(PhonemeCanvas));
+#endif
     }
 
     private void PhonemeCanvas_Touch(object sender, SkiaSharp.Views.Maui.SKTouchEventArgs e)
@@ -2662,6 +2718,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 
     private void ExpressionCanvas_PaintSurface(object sender, SkiaSharp.Views.Maui.SKPaintSurfaceEventArgs e)
     {
+#if DEBUG
+        var _sw = PaintSurfaceProfiler.Start();
+#endif
         SKCanvas canvas = e.Surface.Canvas;
         canvas.Clear();
         if (e.Surface.Canvas.DeviceClipBounds.Height < 5)
@@ -2847,6 +2906,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             // 绘制数値
             canvas.DrawText($"{_viewModel.currentExpressionValue}", drawingExpressionPointer.X - 12f, drawingExpressionPointer.Y - 12f, _textFont12, ThemeColorsManager.Current.ExpressionOptionTextPaint);
         }
+#if DEBUG
+        PaintSurfaceProfiler.End(_sw, nameof(ExpressionCanvas));
+#endif
     }
 
     private void ExpressionCanvas_Touch(object sender, SkiaSharp.Views.Maui.SKTouchEventArgs e)

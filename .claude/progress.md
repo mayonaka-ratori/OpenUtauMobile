@@ -2,8 +2,8 @@
 
 ## Current Sprint
 
-Status: PHASE 2 READY
-Goal: Phase 2 準備完了。テストインフラ整備、skills 作成、_disposed ガード統一完了。Phase 2 タッチ性能改善に着手可能。
+Status: IN PROGRESS
+Goal: Phase 2 タッチ性能改善 — PaintSurface <8ms, タッチレイテンシ <32ms
 
 ## Audit Log
 
@@ -13,6 +13,12 @@ Goal: Phase 2 準備完了。テストインフラ整備、skills 作成、_disp
 
 Phase 1 (Stability) で対処すべき 11 件を特定。推定作業量 ~16h。
 詳細: `.claude/audit-2026-03-18.md`
+
+## Performance Architecture Survey
+
+| Date | Scope | Findings |
+| --- | --- | --- |
+| 2026-03-18 | EditPage 全11キャンバス | PanX 二重スロットル (48ms), Heavy ハンドラ 6本, ビットマップキャッシュ候補 3 キャンバス特定 |
 
 ## Cold Review Log
 
@@ -121,10 +127,33 @@ Cold Review 修正 (PRブロッカー)
 
 ### Phase 2 — Touch Performance (Priority: HIGH)
 
-- [ ] Add touch throttle (16ms) to pitch curve drawing in EditPage
-- [ ] Cache SKPaint/SKPath objects identified by auditor
-- [ ] Implement dirty-region tracking to avoid full canvas redraws
-- [ ] Profile PaintSurface and confirm under 8ms per frame
+Target: PaintSurface < 8ms, touch-to-render latency < 32ms
+
+#### Category A: レイテンシ削減
+- [x] **[P2-1]** PanX 二重スロットル削除 (Rx.Throttle + ObserveOn 除去) — 完了 2026-03-18
+- [ ] **[P2-4]** ピッチ曲線描画スロットル追加 (PianoRollCanvas_Touch)
+
+#### Category B: フレーム時間削減
+- [x] **[P2-2]** PaintSurfaceProfiler 計測基盤実装 (#if DEBUG) — 完了 2026-03-18
+- [ ] **[P2-3]** 実機ベースライン計測 (オーナー実施) → 計測結果で P2-5〜P2-7 の優先度確定
+- [ ] **[P2-5]** PianoRollKeysBackground + PianoKeys ビットマップキャッシュ
+- [ ] **[P2-6]** ExpressionCanvas SKPath バッチ化 + ThemeColors ローカルキャッシュ
+- [ ] **[P2-7]** PanX/PanY ダーティフラグ分離 (InvalidateSurface 選択的呼び出し)
+
+#### Category C: リファクタ・クリーンアップ
+- [ ] **[P2-8]** Debug.WriteLine 大幅削減 (CR3-12)
+- [ ] **[P2-8]** IsOpenGLESSupported 修正/削除 (CR3-13)
+- [ ] **[P2-8]** DrawablePianoKeys デッドコード削除 (CR3-02)
+- [ ] **[P2-8]** IDrawableObject に Draw() 追加 (IFO-01)
+- [ ] **[P2-8]** DrawableNotes/DrawablePart コンストラクタ API 統一
+- [ ] **[P2-8]** ObservableCollectionExtended.Contains() O(n) 改善 (CR4-06)
+- [ ] **[P2-8]** GP-03 TouchPoint.Update() 未使用 time パラメータ削除
+
+#### 判断ポイント
+P2-3 計測結果により方針分岐:
+- 全ハンドラ <8ms → P2-5/P2-6 スキップ、P2-7 + P2-8 で Phase 2 完了
+- 一部 >8ms → 超過ハンドラのみ最適化
+- 多数 >8ms → P2-5 → P2-6 → P2-7 全実施
 
 ### Phase 3 — Missing Features (Priority: MEDIUM)
 
@@ -162,6 +191,9 @@ Record architectural decisions and tradeoffs here.
 | 2026-03-18 | テスト戦略: Transformer のみ直接テスト、他は Phase 3 でインフラ整備後 | OpenUtauMobile.csproj が net9.0-android/ios ターゲットのため plain net9.0 テストから参照不可 |
 | 2026-03-18 | ThemeColorsManager: 追加対応不要 | static class、初期化後不変、Phase 1 で文書化済み (EP-04) |
 | 2026-03-18 | _disposed ガード: 全 IDisposable クラスで統一 | DrawablePart, EditViewModel の漏れを修正 |
+| 2026-03-18 | PanX Rx.Throttle 削除 (P2-1) | GestureProcessor 16ms + Rx 16.6ms の二重スロットルで 48ms レイテンシ。GP throttle のみに統一 |
+| 2026-03-18 | 計測基盤は #if DEBUG 方式 (P2-2) | Phase 2 中は DEBUG ビルドで十分。Release 計測が必要なら Preferences フラグに切替 |
+| 2026-03-18 | Phase 2 タスク優先順: レイテンシ削減 → 計測 → 計測結果で分岐 | 実機データなしの最適化は行わない方針 |
 
 ## Core Patch Notes
 
