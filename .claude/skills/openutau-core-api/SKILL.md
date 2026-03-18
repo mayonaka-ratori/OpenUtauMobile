@@ -14,7 +14,7 @@ description: OpenUtau Core API reference — DocManager singleton, command patte
 - `UVoicePart` contains: `SortedSet<UNote>` notes, curves, expressions
 - `UNote` contains: lyric, tone, duration, position, pitch (`UPitch`), vibrato (`UVibrato`)
 - `UNote.Create()` returns a note with pitch and vibrato initialized but duration=0
-- `UProject.CreateNote()` returns a note with default portamento pitch points
+- `UProject.CreateNote()` returns a note with default portamento pitch points (duration is 0, not auto-set)
 
 ## Command Pattern
 
