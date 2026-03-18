@@ -21,6 +21,7 @@ namespace OpenUtauMobile.ViewModels
     public partial class EditViewModel : ReactiveObject, IDisposable
     {
         private readonly CompositeDisposable _disposables = new();
+        private bool _disposed = false;
         /* UI 相关属性 */
         public double MainLayoutHeight { get; set; } = 1000d;
         public double MainEditHeight { get; set; } = 600d;
@@ -376,6 +377,8 @@ namespace OpenUtauMobile.ViewModels
         /// <inheritdoc/>
         public void Dispose()
         {
+            if (_disposed) return;
+            _disposed = true;
             PhonemizingParts.CollectionChanged -= OnPhonemizingPartsChanged;
             SelectedParts.CollectionChanged -= OnSelectedPartsChanged;
             SelectedNotes.CollectionChanged -= OnSelectedNotesChanged;

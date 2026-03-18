@@ -1,95 +1,74 @@
 ---
 name: skia-performance
-description: SkiaSharp performance rules for mobile — SKPaint caching, draw clipping, path batching, bitmap caching, touch throttling, and InvalidateSurface discipline. Load when working on any SKCanvasView drawing or touch handling code.
+description: SkiaSharp performance rules, SKPaint/SKFont/SKPath caching patterns, PaintSurface optimization, and dirty-region tracking patterns for OpenUtau Mobile.
 ---
-
-# Skia Performance
-
-## Problem
-
-SKCanvasView.PaintSurface fires every frame when invalidated.
-Naive implementation causes GC pressure and dropped frames on mobile devices.
-
-## Rule 1: Cache all SKPaint/SKFont/SKTypeface as static or instance fields
-
-BAD — allocates every frame:
-
+# SkiaSharp Performance Rules
+## Cardinal Rule
+**NEVER allocate SKPaint, SKFont, SKPath, SKBitmap, or SKImage inside a PaintSurface handler.**
+These are native (unmanaged) objects. Allocating them per frame causes:
+1. Native memory leaks (if not disposed)
+2. GC pressure (finalizer queue)
+3. Frame time spikes (allocation + initialization cost)
+## Caching Patterns
+### Static Readonly (Theme-Independent)
 ```csharp
-void OnPaintSurface(SKPaintSurfaceEventArgs e) {
-    using var paint = new SKPaint { Color = SKColors.Red };
-    canvas.DrawRect(rect, paint);
-}
-```
-
-GOOD — allocate once, reuse:
-
-```csharp
-private static readonly SKPaint NotePaint = new() {
-    Color = SKColors.Red,
-    IsAntialias = true
+private static readonly SKPaint _gridPaint = new()
+{
+    Color = SKColors.Gray,
+    Style = SKPaintStyle.Stroke,
+    StrokeWidth = 1,
 };
-void OnPaintSurface(SKPaintSurfaceEventArgs e) {
-    canvas.DrawRect(rect, NotePaint);
-}
 ```
-
-## Rule 2: Clip before draw
-
-Only render elements within the visible area.
-
+Use for: Colors that never change. Shared across all instances.
+Do NOT dispose in instance Dispose() — they outlive any single instance.
+### Instance Readonly (Theme-Dependent)
 ```csharp
-float viewLeft = scrollX;
-float viewRight = scrollX + canvasWidth;
-foreach (var note in notes) {
-    if (note.Right < viewLeft || note.Left > viewRight) continue;
-    // draw note
-}
+private readonly SKPaint _pitchLinePaint = new()
+{
+    Color = ThemeColorsManager.Current.PitchLine,
+    Style = SKPaintStyle.Stroke,
+    StrokeWidth = 4,
+};
 ```
-
-## Rule 3: Batch paths
-
-Combine multiple small shapes into a single SKPath where possible.
-
+Use for: Colors from ThemeColorsManager. Captured at construction time.
+MUST be disposed in instance Dispose().
+NOTE: Runtime theme changes are NOT supported — page must be recreated.
+### SKPath Reuse (Reset Pattern)
 ```csharp
-var path = new SKPath();  // cached as field, call Reset() each frame
-foreach (var note in visibleNotes) {
-    path.AddRect(note.Rect);
-}
-canvas.DrawPath(path, NotePaint);
+// Field:
+private readonly SKPath _envelopePath = new();
+// In PaintSurface:
+_envelopePath.Reset();
+_envelopePath.MoveTo(x1, y1);
+_envelopePath.LineTo(x2, y2);
+canvas.DrawPath(_envelopePath, paint);
 ```
-
-## Rule 4: SKBitmap caching for static content
-
-For elements that rarely change (piano keyboard, grid lines),
-render to an SKBitmap once, then blit with DrawBitmap each frame.
-Invalidate the cached bitmap only when zoom/scroll changes significantly.
-
-## Rule 5: Touch throttling pattern
-
-```csharp
-private long _lastTouchTicks = 0;
-void OnTouch(SKTouchEventArgs e) {
-    long now = Environment.TickCount64;
-    if (now - _lastTouchTicks < 16) return;  // ~60fps cap
-    _lastTouchTicks = now;
-    // process touch
-}
+Use for: Paths that change shape every frame. Reset() is far cheaper than new+dispose.
+## Drawable Object Pattern
+Drawable objects (DrawableNotes, DrawablePart, etc.) are cached in Dictionaries
+keyed by their data model (UPart, etc.).
+Rules:
+- Create once, update properties, call Draw() repeatedly
+- Canvas property is set per-frame (different SKCanvas each PaintSurface call)
+- SKPaint fields are owned by the Drawable, disposed in Dispose()
+- When evicting from cache: ALWAYS call Dispose() on the evicted instance
+- IDisposable with _disposed guard and GC.SuppressFinalize at end
+## PaintSurface Performance Target
+- Target: < 8ms per PaintSurface call
+- Measure with Stopwatch around the handler body
+- Current baseline: unmeasured (Phase 2 will establish)
+## Verification
+To verify no PaintSurface allocations:
+```bash
+grep -n "new SK" OpenUtauMobile/Views/EditPage.xaml.cs
 ```
-
-## Rule 6: Avoid InvalidateSurface() storms
-
-Batch multiple state changes before calling InvalidateSurface() once.
-Never call InvalidateSurface() inside a loop or from every property setter.
-
-## Performance measurement
-
-Add timing in PaintSurface during development:
-
-```csharp
-var sw = System.Diagnostics.Stopwatch.StartNew();
-// ... drawing code ...
-sw.Stop();
-System.Diagnostics.Debug.WriteLine($"Paint: {sw.ElapsedMilliseconds}ms");
-```
-
-Target: under 8ms per frame (leaves headroom for 60fps).
+All matches should be field initializers only — zero inside method bodies.
+## Phase 2 Optimization Targets
+1. Dirty-region tracking: only redraw canvases whose data changed
+2. Bitmap caching: render static layers to SKBitmap, composite on top
+3. Touch-to-render pipeline: minimize layers between touch event and InvalidateSurface
+4. ThemeColorsManager.Current: cache in local variable at Draw() start if profiled as hot
+## Canvas Transform Safety
+- `canvas.Save()` / `canvas.Restore()` MUST be paired
+- `canvas.ResetMatrix()` MUST be followed by `canvas.SetMatrix(saved)` before return
+- DrawablePart and others use this pattern — verify on any new Drawable

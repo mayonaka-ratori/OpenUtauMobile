@@ -55,6 +55,7 @@ namespace OpenUtauMobile.Views.DrawableObjects
         };
         // Waveform paint: theme color, StrokeWidth set per-call
         private readonly SKPaint _waveformPaint = new() { Style = SKPaintStyle.Stroke };
+        private bool _disposed = false;
 
         /// <summary>
         /// 创建可绘制分片（ViewModel-only constructor; call Update() before Draw()）
@@ -383,6 +384,8 @@ namespace OpenUtauMobile.Views.DrawableObjects
 
         public void Dispose()
         {
+            if (_disposed) return;
+            _disposed = true;
             _partFillPaint.Dispose();
             _partBorderPaint.Dispose();
             _titlePaint.Dispose();

@@ -2,8 +2,8 @@
 
 ## Current Sprint
 
-Status: PHASE 1 COMPLETE ✅
-Goal: Phase 1 安定化完了 — Cold Review A- 達成。Phase 2 タッチ性能改善へ移行準備中。
+Status: PHASE 2 READY
+Goal: Phase 2 準備完了。テストインフラ整備、skills 作成、_disposed ガード統一完了。Phase 2 タッチ性能改善に着手可能。
 
 ## Audit Log
 
@@ -110,6 +110,15 @@ Cold Review 修正 (PRブロッカー)
 - [x] **[CR4-04]** DrawableNotes GC.SuppressFinalize 末尾移動 — 完了 2026-03-18
 - [x] **[CR4-05]** DrawableNotes _disposed ガード追加 — 完了 2026-03-18
 
+#### Phase 2 準備
+- [x] skills/maui-mobile-patterns 作成 — 完了 2026-03-18
+- [x] skills/skia-performance 作成 — 完了 2026-03-18
+- [x] tester エージェント更新 (claude-opus-4-6 昇格 + テスタビリティ制約反映) — 完了 2026-03-18
+- [x] Transformer テスト追加 — 完了 2026-03-18
+- [x] DrawablePart _disposed ガード追加 — 完了 2026-03-18
+- [x] EditViewModel _disposed ガード追加 — 完了 2026-03-18
+- [x] ThemeColorsManager スレッド安全性確認 (追加対応不要) — 完了 2026-03-18
+
 ### Phase 2 — Touch Performance (Priority: HIGH)
 
 - [ ] Add touch throttle (16ms) to pitch curve drawing in EditPage
@@ -150,6 +159,9 @@ Record architectural decisions and tradeoffs here.
 | Date | Decision | Reason |
 | --- | --- | --- |
 | 2026-03-18 | OnDisappearing/OnAppearing を Dispose から分離 | B-01: MAUI は AttemptExit 以外の経路でも OnDisappearing が呼ばれるため、一時停止（復帰可能）と完全破棄の責務を分離 |
+| 2026-03-18 | テスト戦略: Transformer のみ直接テスト、他は Phase 3 でインフラ整備後 | OpenUtauMobile.csproj が net9.0-android/ios ターゲットのため plain net9.0 テストから参照不可 |
+| 2026-03-18 | ThemeColorsManager: 追加対応不要 | static class、初期化後不変、Phase 1 で文書化済み (EP-04) |
+| 2026-03-18 | _disposed ガード: 全 IDisposable クラスで統一 | DrawablePart, EditViewModel の漏れを修正 |
 
 ## Core Patch Notes
 
