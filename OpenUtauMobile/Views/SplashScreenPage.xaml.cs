@@ -118,6 +118,7 @@ public partial class SplashScreenPage : ContentPage, ICmdSubscriber
                         return; // 致命的エラー後に HomePage へナビゲートしないよう防止 (SS-01)
                     }
                 }
+                return; // 初期化失敗時は全エラーパスで HomePage ナビゲーションを防止 (CR3-01)
             }
             await MainThread.InvokeOnMainThreadAsync(() =>
             {

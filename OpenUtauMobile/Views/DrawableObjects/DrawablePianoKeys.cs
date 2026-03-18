@@ -12,6 +12,10 @@ using System.Threading.Tasks;
 
 namespace OpenUtauMobile.Views.DrawableObjects
 {
+    /// <summary>
+    /// NOTE: This class is currently unused — piano key rendering is done inline in EditPage.
+    /// Retained for potential future refactoring in Phase 2.
+    /// </summary>
     public class DrawablePianoKeys : IDisposable
     {
         public SKCanvas Canvas { get; set; } = null!;
@@ -75,10 +79,10 @@ namespace OpenUtauMobile.Views.DrawableObjects
 
         public void Dispose()
         {
-            GC.SuppressFinalize(this);
             _keyPaint.Dispose();
             _textPaint.Dispose();
             _keyFont.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }

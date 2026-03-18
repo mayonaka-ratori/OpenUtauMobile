@@ -383,7 +383,6 @@ namespace OpenUtauMobile.Views.DrawableObjects
 
         public void Dispose()
         {
-            GC.SuppressFinalize(this);
             _partFillPaint.Dispose();
             _partBorderPaint.Dispose();
             _titlePaint.Dispose();
@@ -391,6 +390,7 @@ namespace OpenUtauMobile.Views.DrawableObjects
             _trackNotesPaint.Dispose();
             _waveformPaint.Dispose();
             // _waveLoadInfoPaint, _handlePaint are static — not disposed per-instance
+            GC.SuppressFinalize(this);
         }
     }
 }

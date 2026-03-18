@@ -170,10 +170,10 @@ namespace OpenUtauMobile.Views.DrawableObjects
 
         public void Dispose()
         {
-            GC.SuppressFinalize(this);
             _barTextPaint.Dispose();
             _barFont.Dispose();
             _shadowPaint.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }

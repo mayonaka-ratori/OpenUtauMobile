@@ -20,6 +20,7 @@ Phase 1 (Stability) で対処すべき 11 件を特定。推定作業量 ~16h。
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-03-18 | fresh-eyes (claude-opus-4-6) | Phase 1 全変更差分 | B− | 6 | 9 | 3 |
 | 2026-03-18 | fresh-eyes #2 (claude-opus-4-6) | Phase 1 全変更 (Blocker修正後) | B− | 4 | 8 | 5 |
+| 2026-03-18 | fresh-eyes #3 (claude-opus-4-6) | Phase 1 全変更 (推奨修正後) | B+ | 1 | 7 | 3 |
 
 ### Review #1
 Blocker 6件: 修正完了・検証済み
@@ -29,6 +30,11 @@ Low 3件 (GP-03, DN-01, IFO-01): Phase 2 以降。
 Blocker 4件 (EP-01, EP-05, EP-08, SS-01): 修正完了 + EP-03 同時修正
 Recommended 8件: 7件完了 (EP-04, EP-06, EP-07, GP-01, ATO-01, ATO-02, ATO-03)。OP-01 は Phase 3 送り。
 Low 5件: Phase 2 以降。
+### Review #3
+Blocker 1件 (CR3-01): SplashScreen catch fallthrough — 修正完了
+Recommended 7件: CR3-06, CR3-14, CR3-17 修正完了。CR3-02 コメント追加。CR3-07 は CR3-02 に包含 (デッドコード)。CR3-12, CR3-13 は Phase 2 送り。
+Low 3件: Phase 2 以降。
+AudioTrackOutput.cs, DrawableNotes.cs は API 障害で未検証 → Review #4 で再確認。
 
 ## Backlog
 
@@ -86,6 +92,13 @@ Cold Review 修正 (PRブロッカー)
 - [x] ATO-02: PlaybackLoop _audioTrack ローカルコピー — 完了 2026-03-18
 - [x] ATO-03: Stop() _disposed ガード追加 — 完了 2026-03-18
 - [ ] OP-01: RequestStoragePermissionAsync 常に true → Phase 3 送り
+
+#### Cold Review #3 修正
+- [x] **[CR3-01]** SplashScreen catch 後 fallthrough 防止 (ブロッカー) — 完了 2026-03-18
+- [x] **[CR3-06]** 全 Drawable + EditViewModel の GC.SuppressFinalize 末尾移動 — 完了 2026-03-18
+- [x] **[CR3-14]** DrawableTickBackground SnapTicks Clear 追加 — 完了 2026-03-18
+- [x] **[CR3-17]** AttemptExit RemoveSubscriber 順序修正 — 完了 2026-03-18
+- [x] **[CR3-02]** DrawablePianoKeys デッドコードコメント追加 — 完了 2026-03-18
 
 ### Phase 2 — Touch Performance (Priority: HIGH)
 

@@ -376,11 +376,11 @@ namespace OpenUtauMobile.ViewModels
         /// <inheritdoc/>
         public void Dispose()
         {
-            GC.SuppressFinalize(this);
             PhonemizingParts.CollectionChanged -= OnPhonemizingPartsChanged;
             SelectedParts.CollectionChanged -= OnSelectedPartsChanged;
             SelectedNotes.CollectionChanged -= OnSelectedNotesChanged;
             _disposables.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         public void ValidateSelectedParts()

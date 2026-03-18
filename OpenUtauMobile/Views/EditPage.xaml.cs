@@ -2511,14 +2511,16 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                 PathManager.Inst.ClearCache();
                 Log.Information("Cache cleared.");
             }
+            DocManager.Inst.RemoveSubscriber(this); // ページ離脱前に通知を遮断 (CR3-17)
             await Navigation.PopModalAsync();
             Dispose();
             return;
         }
         if (!await AskIfSaveAndContinue())
         { // 询问是否保存
-            return; // 如果‘取消’，则不关闭
+            return; // 如果’取消’，则不关闭
         }
+        DocManager.Inst.RemoveSubscriber(this); // ページ離脱前に通知を遮断 (CR3-17)
         await Navigation.PopModalAsync(); // 不保存，直接退出
         Dispose(); // (B-02) 保存なし離脱パスでも完全破棄を保証
     }

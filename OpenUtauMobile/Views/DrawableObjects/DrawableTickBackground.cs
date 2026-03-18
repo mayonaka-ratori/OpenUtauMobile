@@ -74,6 +74,7 @@ namespace OpenUtauMobile.Views.DrawableObjects
 
         public void Draw()
         {
+            SnapTicks?.Clear(); // 毎フレーム再構築 (CR3-14)
             var typeface = ObjectProvider.NotoSansCJKscRegularTypeface;
             _barNumberFont.Typeface = typeface;
             _tempoFont.Typeface = typeface;
@@ -195,7 +196,6 @@ namespace OpenUtauMobile.Views.DrawableObjects
 
         public void Dispose()
         {
-            GC.SuppressFinalize(this);
             _barLinePaint.Dispose();
             _barTextPaint.Dispose();
             _barNumberFont.Dispose();
@@ -206,6 +206,7 @@ namespace OpenUtauMobile.Views.DrawableObjects
             _timeSigFont.Dispose();
             _timeLineBgPaint.Dispose();
             // _signaturePaint is static — not disposed per-instance
+            GC.SuppressFinalize(this);
         }
     }
 }
