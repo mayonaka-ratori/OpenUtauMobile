@@ -21,7 +21,7 @@ Phase 1 (Stability) で対処すべき 11 件を特定。推定作業量 ~16h。
 | 2026-03-18 | fresh-eyes (claude-opus-4-6) | Phase 1 全変更差分 | B− | 6 | 9 | 3 |
 
 Blocker 6件: 修正完了・検証済み
-Recommended 9件: ATO-02, EP-03 は Blocker と同時修正済み。EP-04 は Phase 2 送り。残り6件 (EP-05〜EP-07, GP-02, GP-04, SS-02) 未着手。
+Recommended 9件: 全完了 (ATO-02, EP-03 は Blocker 同時修正。EP-04 は Phase 2 送り。EP-05〜EP-07, GP-02, GP-04, SS-02 完了)
 Low 3件 (GP-03, DN-01, IFO-01): Phase 2 以降。
 
 ## Backlog
@@ -56,12 +56,12 @@ Cold Review 修正 (PRブロッカー)
 
 ### Phase 1 — Cold Review Recommended (残り)
 
-- [ ] EP-05: OnAppearing PlaybackTimer 無条件再開
-- [ ] EP-06: using System.Reactive.Linq 重複削除
-- [ ] EP-07: InvalidateSurface() 重複呼び出し削除
-- [ ] GP-02: ClickThreshold コメント修正
-- [ ] GP-04: 未使用 _cts 削除
-- [ ] SS-02: CheckPermission if(true) 修正
+- [x] EP-05: OnAppearing PlaybackTimer 無条件再開 — 完了 2026-03-18
+- [x] EP-06: using System.Reactive.Linq 重複削除 — 完了 2026-03-18
+- [x] EP-07: InvalidateSurface() 重複呼び出し削除 — 完了 2026-03-18
+- [x] GP-02: ClickThreshold コメント修正 — 完了 2026-03-18
+- [x] GP-04: 未使用 _cts 削除 — 完了 2026-03-18
+- [x] SS-02: CheckPermission if(true) 修正 — 完了 2026-03-18
 - [ ] EP-04: PitchCanvas SKPath キャッシュ化 → Phase 2 送り
 
 ### Phase 2 — Touch Performance (Priority: HIGH)

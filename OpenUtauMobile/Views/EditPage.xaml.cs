@@ -19,7 +19,6 @@ using System.Diagnostics;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using Preferences = OpenUtau.Core.Util.Preferences;
-using System.Reactive.Linq;
 using DynamicData;
 using OpenUtau.Core.Format;
 using System.Threading.Tasks;
@@ -1343,7 +1342,6 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             PianoRollCanvas.InvalidateSurface();
             TrackCanvas.InvalidateSurface(); // 重绘走带画布
             PianoRollPitchCanvas.InvalidateSurface();
-            PianoRollPitchCanvas.InvalidateSurface();
         }
         else if (cmd is MoveNoteCommand moveNoteCommand)
         {
@@ -2280,16 +2278,13 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 
     /// <summary>
     /// ページが再表示されるとき、タイマーを再開する。
-    /// PlaybackTimer は再生中のみ再開する。
+    /// PlaybackTimer は常に再開する — Tick ハンドラ内で Playing 状態を確認する。
     /// </summary>
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        PlaybackTimer?.Start();   // Always restart — Tick handler checks Playing internally
         AutoSaveTimer?.Start();
-        if (PlaybackManager.Inst.Playing)
-        {
-            PlaybackTimer?.Start();
-        }
     }
 
     public void Dispose()

@@ -137,7 +137,7 @@ public partial class SplashScreenPage : ContentPage, ICmdSubscriber
         if (DeviceInfo.Current.Platform == DevicePlatform.Android) // Android
         {
             PermissionStatus storage_read_status = await Permissions.CheckStatusAsync<Permissions.StorageRead>(); // 检查存储读取权限
-            if (true)
+            if (storage_read_status != PermissionStatus.Granted)
             {
                 storage_read_status = await Permissions.RequestAsync<Permissions.StorageRead>(); // 请求存储读取权限
                 if (storage_read_status != PermissionStatus.Granted)

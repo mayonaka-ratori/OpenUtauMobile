@@ -9,7 +9,7 @@ public class GestureProcessor : IDisposable
     private readonly Transformer _transformer;
 
     // 手势参数配置
-    private const float ClickThreshold = 5f;   // 点击移动阈值（平方）
+    private const float ClickThreshold = 5f;   // 点击判定の移動距離しきい値（ピクセル）
     private const float DoubleTapDistanceThreshold = 20f; // 双击距离阈值
     private const int DoubleTapTimeThresholdMs = 300;     // 双击时间阈值（毫秒）
 
@@ -22,8 +22,6 @@ public class GestureProcessor : IDisposable
     // 当前手势状态
     private GestureState _currentState = GestureState.None;
 
-    // 异步操作控制
-    private CancellationTokenSource _cts = new CancellationTokenSource(); // 取消令牌源，用于取消异步操作
     private SKPoint _lastSinglePoint;
 
     // 用于标记是否已经开始拖动
@@ -239,9 +237,6 @@ public class GestureProcessor : IDisposable
     #region 手势核心逻辑
     private void StartGestureDetection(TouchPoint point)
     {
-        _cts?.Cancel();
-        _cts?.Dispose();
-        _cts = new CancellationTokenSource();
     }
 
     private void HandleSingleTouchMove(TouchPoint point)
@@ -346,7 +341,6 @@ public class GestureProcessor : IDisposable
 
     private void CancelCurrentGesture()
     {
-        _cts?.Cancel();
         _currentState = GestureState.None;
     }
 
@@ -369,9 +363,6 @@ public class GestureProcessor : IDisposable
         XZoomUpdate = null;
         YZoomStart = null;
         YZoomUpdate = null;
-        // CancellationTokenSource を解放
-        _cts?.Cancel();
-        _cts?.Dispose();
     }
 
     private void FinalizeGesture()
