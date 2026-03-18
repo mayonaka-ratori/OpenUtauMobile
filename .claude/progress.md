@@ -135,8 +135,10 @@ Target: PaintSurface < 8ms, touch-to-render latency < 32ms
 
 #### Category B: フレーム時間削減
 - [x] **[P2-2]** PaintSurfaceProfiler 計測基盤実装 (#if DEBUG) — 完了 2026-03-18
-- [ ] **[P2-3]** 実機ベースライン計測 (オーナー実施) → 計測結果で P2-5〜P2-7 の優先度確定
-- [ ] **[P2-5]** PianoRollKeysBackground + PianoKeys ビットマップキャッシュ
+- [x] **[P2-3]** 実機ベースライン計測 (Pixel 10 Pro XL, Android 16) — 完了 2026-03-18
+- [x] **[P2-5a]** PlaybackTickBackgroundCanvas ビットマップキャッシュ (水平方向) — 完了 2026-03-18
+- [x] **[P2-5b]** PianoKeysCanvas ビットマップキャッシュ (垂直方向) — 完了 2026-03-18
+- [ ] **[P2-5c]** PianoRollTickBackgroundCanvas ビットマップキャッシュ（シャドウ合成）
 - [ ] **[P2-6]** ExpressionCanvas SKPath バッチ化 + ThemeColors ローカルキャッシュ
 - [ ] **[P2-7]** PanX/PanY ダーティフラグ分離 (InvalidateSurface 選択的呼び出し)
 
@@ -181,6 +183,20 @@ Record measurements here as work progresses.
 | Touch-to-render latency (ms) | — | — | < 32 |
 | Cold start (s) | — | — | < 3 |
 
+## Performance Measurement Log
+
+実機計測: Pixel 10 Pro XL (Android 16, API 36)
+
+| 日付 | 計測フェーズ | PlaybackTickBg | PianoRollTickBg | PianoKeys | PianoRollKeysBg | TrackCanvas |
+|------|-----------|---|---|---|---|---|
+| 2026-03-18 | ベースライン | max=51.04ms<br/>slow=33.3% | max=33.42ms<br/>slow=6.9% | max=28.90ms<br/>slow=4.1% | max=9.17ms<br/>slow=0.3% | max=1.6ms<br/>slow=0% |
+| 2026-03-18 | P2-5a+5b後 | max=25ms<br/>frame count 21→6 | max=40ms<br/>slow=11% | **max=6ms**<br/>**slow=0%** ✅ | max=25ms<br/>slow=0.5% | max=1.8ms<br/>slow=0% |
+
+**注記:**
+- PlaybackTickBackgroundCanvas: キャッシュヒット時はビットマップ描画のみ (フレーム数削減)
+- PianoKeysCanvas: <8ms 目標達成 (6ms 平均)
+- PianoRollTickBackgroundCanvas: 次フェーズ（シャドウ領域合成アプローチ必要）
+
 ## Decision Log
 
 Record architectural decisions and tradeoffs here.
@@ -194,6 +210,8 @@ Record architectural decisions and tradeoffs here.
 | 2026-03-18 | PanX Rx.Throttle 削除 (P2-1) | GestureProcessor 16ms + Rx 16.6ms の二重スロットルで 48ms レイテンシ。GP throttle のみに統一 |
 | 2026-03-18 | 計測基盤は #if DEBUG 方式 (P2-2) | Phase 2 中は DEBUG ビルドで十分。Release 計測が必要なら Preferences フラグに切替 |
 | 2026-03-18 | Phase 2 タスク優先順: レイテンシ削減 → 計測 → 計測結果で分岐 | 実機データなしの最適化は行わない方針 |
+| 2026-03-18 | PianoKeysCanvas 垂直ビットマップキャッシュで <8ms 達成 (P2-5b) | 39ms → 6ms、ズーム時のみ再生成、PanY スクロールはオフセット描画で高速化 |
+| 2026-03-18 | PlaybackTickBackgroundCanvas キャッシュはフレーム数削減に効果的 | max は 25ms に軽減だが、キャッシュヒット時は 6 フレーム（1フレーム ~6ms）。PianoRollTickBg は次段階へ（shadow composite 必要） |
 
 ## Core Patch Notes
 

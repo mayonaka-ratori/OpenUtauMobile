@@ -32,7 +32,7 @@ public static class PaintSurfaceProfiler
         // Log slow frames immediately
         if (ms > TargetMs)
         {
-            Debug.WriteLine($"⚠️ SLOW FRAME [{canvasName}]: {ms:F2}ms (target: {TargetMs}ms)");
+            Console.WriteLine($"⚠️ SLOW FRAME [{canvasName}]: {ms:F2}ms (target: {TargetMs}ms)");
         }
     }
 
@@ -41,13 +41,13 @@ public static class PaintSurfaceProfiler
     /// </summary>
     public static void DumpStats()
     {
-        Debug.WriteLine("=== PaintSurface Performance Stats ===");
+        Console.WriteLine("=== PaintSurface Performance Stats ===");
         foreach (var (name, stat) in _stats.OrderByDescending(x => x.Value.maxMs))
         {
             double slowPercent = stat.totalFrames > 0 ? (double)stat.slowFrames / stat.totalFrames * 100 : 0;
-            Debug.WriteLine($"  {name}: {stat.totalFrames} frames, max={stat.maxMs:F2}ms, slow(>{TargetMs}ms)={stat.slowFrames} ({slowPercent:F1}%)");
+            Console.WriteLine($"  {name}: {stat.totalFrames} frames, max={stat.maxMs:F2}ms, slow(>{TargetMs}ms)={stat.slowFrames} ({slowPercent:F1}%)");
         }
-        Debug.WriteLine("======================================");
+        Console.WriteLine("======================================");
     }
 
     public static void Reset()

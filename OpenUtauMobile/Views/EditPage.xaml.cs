@@ -144,6 +144,25 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
     private DrawablePianoRollTickBackground? _drawablePianoRollTickBackground;
     #endregion
 
+    #region PlaybackTickBackground ビットマップキャッシュ（P2-5a）
+    private SKBitmap? _tickBgCacheBitmap;
+    private SKCanvas? _tickBgCacheCanvas;
+    private float _tickBgCacheOriginPanX;
+    private float _tickBgCachedZoomX;
+    private int _tickBgCachedSnapDiv;
+    private int _tickBgCachedTempoHash;
+    private const float TICK_BG_CACHE_MARGIN = 1.0f; // screen-widths per side
+    #endregion
+
+    #region PianoKeysCanvas ビットマップキャッシュ（P2-5b）
+    private SKBitmap? _pianoKeysCacheBitmap;
+    private SKCanvas? _pianoKeysCacheCanvas;
+    private float _pianoKeysCacheOriginPanY;
+    private float _pianoKeysCachedZoomY;
+    private int _pianoKeysCachedProjectKey;
+    private const float PIANO_KEYS_CACHE_MARGIN = 1.0f;
+    #endregion
+
     public EditPage(string path)
     {
         InitializeComponent();
@@ -1845,46 +1864,92 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 #if DEBUG
         var _sw = PaintSurfaceProfiler.Start();
 #endif
-        SKCanvas Canvas = e.Surface.Canvas;
-        // 清空画布
+        var canvas = e.Surface.Canvas;
+        var screenWidth = (float)e.Info.Width;
+        var screenHeight = (float)e.Info.Height;
+        if (screenWidth < 1 || screenHeight < 1)
+        {
+#if DEBUG
+            PaintSurfaceProfiler.End(_sw, nameof(PianoKeysCanvas));
+#endif
+            return;
+        }
+        var transformer = _viewModel.PianoRollTransformer;
+        float currentPanY = transformer.PanY;
+        float currentZoomY = transformer.ZoomY;
+        int currentProjectKey = DocManager.Inst.Project?.key ?? 0;
+        bool cacheInvalid =
+            _pianoKeysCacheBitmap == null ||
+            _pianoKeysCacheBitmap.Width != (int)screenWidth ||
+            _pianoKeysCacheBitmap.Height != (int)(screenHeight * (1 + 2 * PIANO_KEYS_CACHE_MARGIN)) ||
+            _pianoKeysCachedZoomY != currentZoomY ||
+            _pianoKeysCachedProjectKey != currentProjectKey ||
+            Math.Abs(currentPanY - _pianoKeysCacheOriginPanY) > screenHeight * PIANO_KEYS_CACHE_MARGIN;
+        if (cacheInvalid)
+        {
+            // Diagnostic logging removed — cache validation complete
+            // [PianoKeysCache] MISS: logged during development
+            _pianoKeysCacheCanvas?.Dispose();
+            _pianoKeysCacheBitmap?.Dispose();
+            int bitmapWidth = (int)screenWidth;
+            int bitmapHeight = (int)(screenHeight * (1 + 2 * PIANO_KEYS_CACHE_MARGIN));
+            _pianoKeysCacheBitmap = new SKBitmap(bitmapWidth, bitmapHeight);
+            _pianoKeysCacheCanvas = new SKCanvas(_pianoKeysCacheBitmap);
+            float cachePanY = currentPanY - screenHeight * PIANO_KEYS_CACHE_MARGIN;
+            DrawPianoKeysToCanvas(_pianoKeysCacheCanvas, bitmapWidth, bitmapHeight, cachePanY, currentZoomY, currentProjectKey);
+            _pianoKeysCacheOriginPanY = currentPanY;
+            _pianoKeysCachedZoomY = currentZoomY;
+            _pianoKeysCachedProjectKey = currentProjectKey;
+        }
+        else
+        {
+            // Diagnostic logging removed — cache validation complete
+            // [PianoKeysCache] HIT: logged during development
+        }
+        canvas.Clear();
+        float offsetY = (currentPanY - _pianoKeysCacheOriginPanY) + screenHeight * PIANO_KEYS_CACHE_MARGIN;
+        canvas.DrawBitmap(_pianoKeysCacheBitmap!, 0, -offsetY);
+#if DEBUG
+        PaintSurfaceProfiler.End(_sw, nameof(PianoKeysCanvas));
+#endif
+    }
+
+    private void DrawPianoKeysToCanvas(SKCanvas Canvas, float width, float height, float panY, float zoomY, int projectKey)
+    {
         Canvas.Clear();
         float heightPerPianoKey = (float)(_viewModel.HeightPerPianoKey * _viewModel.Density);
-        float width = Canvas.DeviceClipBounds.Width;
 
-        float viewTop = -_viewModel.PianoRollTransformer.PanY / _viewModel.PianoRollTransformer.ZoomY;
-        float viewBottom = viewTop + Canvas.DeviceClipBounds.Size.Height / _viewModel.PianoRollTransformer.ZoomY;
+        float viewTop = -panY / zoomY;
+        float viewBottom = viewTop + height / zoomY;
         int topKeyNum = Math.Max(0, (int)Math.Floor(viewTop / heightPerPianoKey));
         int bottomKeyNum = Math.Min(ViewConstants.TotalPianoKeys, (int)Math.Ceiling(viewBottom / heightPerPianoKey));
-        float y = topKeyNum * heightPerPianoKey * _viewModel.PianoRollTransformer.ZoomY + _viewModel.PianoRollTransformer.PanY;
+        float y = topKeyNum * heightPerPianoKey * zoomY + panY;
         for (int i = topKeyNum; i < bottomKeyNum; i++)
         {
             _pianoKeysPaint.Color = ViewConstants.PianoKeys[i].IsBlackKey ? ThemeColorsManager.Current.BlackPianoKey : ThemeColorsManager.Current.WhitePianoKey;
-            Canvas.DrawRect(0, y, width, heightPerPianoKey * _viewModel.PianoRollTransformer.ZoomY, _pianoKeysPaint);
-            y += heightPerPianoKey * _viewModel.PianoRollTransformer.ZoomY;
+            Canvas.DrawRect(0, y, width, heightPerPianoKey * zoomY, _pianoKeysPaint);
+            y += heightPerPianoKey * zoomY;
         }
         // 绘制键名文本
-        y = (float)(topKeyNum + 0.5f) * heightPerPianoKey * _viewModel.PianoRollTransformer.ZoomY + _viewModel.PianoRollTransformer.PanY;
-        //heightPerPianoKey = heightPerPianoKey * _viewModel.PianoRollTransformer.ZoomY;
+        y = (float)(topKeyNum + 0.5f) * heightPerPianoKey * zoomY + panY;
+        //heightPerPianoKey = heightPerPianoKey * zoomY;
         PianoKey? drawingKey = null;
-        _pianoKeyFont.Size = (float)(heightPerPianoKey * 0.5 * _viewModel.PianoRollTransformer.ZoomY);
+        _pianoKeyFont.Size = (float)(heightPerPianoKey * 0.5 * zoomY);
         _pianoKeyFont.Typeface = ObjectProvider.NotoSansCJKscRegularTypeface;
         for (int i = topKeyNum; i < bottomKeyNum; i++)
         {
             drawingKey = ViewConstants.PianoKeys[i];
-            int numberedNotationIndex = drawingKey.NoteNum - 60 - DocManager.Inst.Project.key;
+            int numberedNotationIndex = drawingKey.NoteNum - 60 - projectKey;
             _pianoKeyTextPaint.Color = drawingKey.IsBlackKey ? ThemeColorsManager.Current.BlackPianoKeyText : ThemeColorsManager.Current.WhitePianoKeyText;
             Canvas.DrawText(drawingKey.NoteName, 5, y, _pianoKeyFont, _pianoKeyTextPaint);
             if (numberedNotationIndex >= 0 && numberedNotationIndex <= 11)
             {
                 Canvas.DrawText(MusicMath.NumberedNotations[numberedNotationIndex], 50 * (float)_viewModel.Density, y, _pianoKeyFont, _pianoKeyTextPaint);
             }
-            y += heightPerPianoKey * _viewModel.PianoRollTransformer.ZoomY;
+            y += heightPerPianoKey * zoomY;
         }
         // 恢复变换矩阵
         //Canvas.SetMatrix(originalMatrix);
-#if DEBUG
-        PaintSurfaceProfiler.End(_sw, nameof(PianoKeysCanvas));
-#endif
     }
 
     private void PianoKeysCanvas_Touch(object sender, SkiaSharp.Views.Maui.SKTouchEventArgs e)
@@ -1969,14 +2034,64 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 #if DEBUG
         var _sw = PaintSurfaceProfiler.Start();
 #endif
-        // 清空画布
-        e.Surface.Canvas.Clear(ThemeColorsManager.Current.TrackBackground);
-        // 设置画布变换
-        e.Surface.Canvas.SetMatrix(_viewModel.TrackTransformer.GetTransformMatrix());
-        // 绘制走带网格背景（キャッシュ済みインスタンスを再利用）
-        _drawableTickBackground ??= new DrawableTickBackground(e.Surface.Canvas, _viewModel);
-        _drawableTickBackground.Canvas = e.Surface.Canvas;
-        _drawableTickBackground.Draw();
+        var canvas = e.Surface.Canvas;
+        var screenWidth = (float)e.Info.Width;
+        var screenHeight = (float)e.Info.Height;
+        if (screenWidth < 1 || screenHeight < 1)
+        {
+#if DEBUG
+            PaintSurfaceProfiler.End(_sw, nameof(PlaybackTickBackgroundCanvas));
+#endif
+            return;
+        }
+        var transformer = _viewModel.TrackTransformer;
+        float currentPanX = transformer.PanX;
+        float currentZoomX = transformer.ZoomX;
+        int currentSnapDiv = _viewModel.TrackSnapDiv;
+        int currentTempoHash = ComputeTempoTimeSignatureHash();
+        // キャッシュ無効化判定
+        bool cacheInvalid =
+            _tickBgCacheBitmap == null ||
+            _tickBgCacheBitmap.Width != (int)(screenWidth * (1 + 2 * TICK_BG_CACHE_MARGIN)) ||
+            _tickBgCacheBitmap.Height != (int)screenHeight ||
+            _tickBgCachedZoomX != currentZoomX ||
+            _tickBgCachedSnapDiv != currentSnapDiv ||
+            _tickBgCachedTempoHash != currentTempoHash ||
+            Math.Abs(currentPanX - _tickBgCacheOriginPanX) > screenWidth * TICK_BG_CACHE_MARGIN;
+        if (cacheInvalid)
+        {
+            // Diagnostic logging removed — cache validation complete
+            // [TickBgCache] MISS: logged during development
+            // 旧キャッシュを破棄
+            _tickBgCacheCanvas?.Dispose();
+            _tickBgCacheBitmap?.Dispose();
+            // オーバーサイズビットマップを生成（スクリーン幅の3倍）
+            int bitmapWidth = (int)(screenWidth * (1 + 2 * TICK_BG_CACHE_MARGIN));
+            int bitmapHeight = (int)screenHeight;
+            _tickBgCacheBitmap = new SKBitmap(bitmapWidth, bitmapHeight);
+            _tickBgCacheCanvas = new SKCanvas(_tickBgCacheBitmap);
+            _tickBgCacheCanvas.Clear(ThemeColorsManager.Current.TrackBackground);
+            // キャッシュ用マトリクス：現在のPanXから左マージン分オフセット
+            float cachePanX = currentPanX - screenWidth * TICK_BG_CACHE_MARGIN;
+            var cacheMatrix = SKMatrix.CreateScale(currentZoomX, transformer.ZoomY)
+                .PostConcat(SKMatrix.CreateTranslation(cachePanX, transformer.PanY));
+            _tickBgCacheCanvas.SetMatrix(cacheMatrix);
+            // 既存 Drawable を再利用してビットマップに描画
+            _drawableTickBackground ??= new DrawableTickBackground(_tickBgCacheCanvas, _viewModel);
+            _drawableTickBackground.Canvas = _tickBgCacheCanvas;
+            _drawableTickBackground.Draw();
+            // キャッシュ状態を記録
+            _tickBgCacheOriginPanX = currentPanX;
+            _tickBgCachedZoomX = currentZoomX;
+            _tickBgCachedSnapDiv = currentSnapDiv;
+            _tickBgCachedTempoHash = currentTempoHash;
+        }
+        // Diagnostic logging removed — cache validation complete
+        // [TickBgCache] HIT: logged during development
+        // キャッシュビットマップをオフセット描画
+        canvas.Clear(ThemeColorsManager.Current.TrackBackground);
+        float offsetX = (currentPanX - _tickBgCacheOriginPanX) + screenWidth * TICK_BG_CACHE_MARGIN;
+        canvas.DrawBitmap(_tickBgCacheBitmap!, -offsetX, 0);
 #if DEBUG
         PaintSurfaceProfiler.End(_sw, nameof(PlaybackTickBackgroundCanvas));
 #endif
@@ -2331,6 +2446,25 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         AutoSaveTimer?.Start();
     }
 
+    private int ComputeTempoTimeSignatureHash()
+    {
+        var project = DocManager.Inst.Project;
+        if (project == null) return 0;
+        var hash = new HashCode();
+        foreach (var tempo in project.tempos)
+        {
+            hash.Add(tempo.position);
+            hash.Add(tempo.bpm);
+        }
+        foreach (var ts in project.timeSignatures)
+        {
+            hash.Add(ts.barPosition);
+            hash.Add(ts.beatPerBar);
+            hash.Add(ts.beatUnit);
+        }
+        return hash.ToHashCode();
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
@@ -2354,6 +2488,16 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         _pianoRollGestureProcessor.Dispose();
         _phonemeGestureProcessor.Dispose();
         _expressionGestureProcessor.Dispose();
+        // ビットマップキャッシュを破棄 (P2-5a)
+        _tickBgCacheCanvas?.Dispose();
+        _tickBgCacheCanvas = null;
+        _tickBgCacheBitmap?.Dispose();
+        _tickBgCacheBitmap = null;
+        // ビットマップキャッシュを破棄 (P2-5b)
+        _pianoKeysCacheCanvas?.Dispose();
+        _pianoKeysCacheCanvas = null;
+        _pianoKeysCacheBitmap?.Dispose();
+        _pianoKeysCacheBitmap = null;
         // キャッシュ済み Drawable インスタンスを破棄 (Phase C / D-07)
         _drawableNotes?.Dispose();
         _drawableTickBackground?.Dispose();
