@@ -18,7 +18,7 @@ namespace OpenUtauMobile.Platforms.Android.Utils.Audio
         private Thread? _playbackThread; // 播放线程
         private volatile bool _isPlaying = false; // 播放线程是否正在进行
         private bool _isInitialized = false; // 是否已初始化
-        private bool _disposed = false; // Dispose済みガード
+        private volatile bool _disposed = false; // Dispose済みガード (ATO-01: スレッド間可視性)
 
         private ISampleProvider? _sampleProvider; // 样本提供器成员
         private int _bufferSize; // 缓冲区大小
@@ -192,6 +192,7 @@ namespace OpenUtauMobile.Platforms.Android.Utils.Audio
 
         public void Pause()
         {
+            if (_disposed) return; // Guard against post-Dispose calls (ATO-03)
             Debug.WriteLine("暂停方法调用");
             if (!_isPlaying || !_isInitialized) return; // 如果没有在播放或未初始化则返回
             _isPlaying = false; // 设为没在播放
@@ -219,7 +220,8 @@ namespace OpenUtauMobile.Platforms.Android.Utils.Audio
         /// </summary>
         private void PlaybackLoop()
         {
-            if (_audioTrack == null || _sampleProvider == null)
+            var audioTrack = _audioTrack; // Local copy to avoid TOCTOU race (ATO-02)
+            if (audioTrack == null || _sampleProvider == null)
             {
                 _isPlaying = false;
                 return;
@@ -229,21 +231,19 @@ namespace OpenUtauMobile.Platforms.Android.Utils.Audio
 
             while (_isPlaying)
             {
+                audioTrack = _audioTrack; // Re-read at loop top
+                if (audioTrack == null)
+                {
+                    _isPlaying = false;
+                    break;
+                }
                 int samplesRead = _sampleProvider.Read(buffer, 0, buffer.Length);
                 if (samplesRead > 0)
                 {
-                    if (_audioTrack != null) // 再次检查以确保在循环过程中没有被释放
+                    int result = audioTrack.Write(buffer, 0, buffer.Length, WriteMode.Blocking);
+                    if (result < 0)
                     {
-                        int result = _audioTrack.Write(buffer, 0, buffer.Length, WriteMode.Blocking);
-                        if (result < 0)
-                        {
-                            Debug.WriteLine($"AudioTrack异常: {result}");
-                        }
-                    }
-                    else
-                    {
-                        _isPlaying = false;
-                        break;
+                        Debug.WriteLine($"AudioTrack异常: {result}");
                     }
                 }
             }
@@ -288,6 +288,7 @@ namespace OpenUtauMobile.Platforms.Android.Utils.Audio
 
         public void Stop()
         {
+            if (_disposed) return; // Guard against post-Dispose calls (ATO-03)
             Debug.WriteLine("==========\nAudioTrack Stop方法调用\n");
             try
             {

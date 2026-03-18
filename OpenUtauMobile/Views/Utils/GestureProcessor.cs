@@ -106,12 +106,7 @@ public class GestureProcessor : IDisposable
         }
 
         var point = new TouchPoint(e.Id, e.Location, DateTime.UtcNow);
-        try {
-            _activePoints.Add(e.Id, point); 
-        } catch(Exception err) { 
-            Debug.WriteLine($"系统卡顿{err}"); 
-            Log.Error(err, "系统卡顿，无法添加触摸点");
-        }
+        _activePoints[e.Id] = point; // Upsert: overwrite stale entry if touch ID reused
 
         // 重置拖动标记
         _hasPanStarted = false;

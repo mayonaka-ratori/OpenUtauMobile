@@ -74,6 +74,10 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
     /// </summary>
     private SKPoint TouchingPoint { get; set; } = new();
     #region 画笔
+    // NOTE: These SKPaint/SKFont fields capture theme colors at construction time.
+    // Runtime theme changes are NOT supported — the page must be recreated.
+    // If runtime theme switching is added in the future, these paints must be
+    // refreshed in OnAppearing() or via a theme-changed callback.
     // 音高线画笔
     private readonly SKPaint _pitchLinePaint = new()
     {
@@ -102,6 +106,8 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         Style = SKPaintStyle.Fill,
         Color = ThemeColorsManager.Current.BlackPianoRollBackground,
     };
+    // ステートレスなコンバーター — 静的キャッシュで毎回 new を防ぐ (EP-06)
+    private static readonly SKColorMauiColorConverter _skColorConverter = new();
     // PianoRollPitchCanvas タッチカーソル（固定色 Yellow）
     private static readonly SKPaint _touchCursorPaint = new()
     {
@@ -253,8 +259,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         _viewModel.WhenAnyValue(x => x.CurrentNoteEditMode)
             .Subscribe(mode =>
             {
-                SKColorMauiColorConverter converter = new();
-                Color? activeColor = converter.Convert(ThemeColorsManager.Current.ActiveNoteEditModeButton, typeof(Color), null, null!) as Color;
+                Color? activeColor = _skColorConverter.Convert(ThemeColorsManager.Current.ActiveNoteEditModeButton, typeof(Color), null, null!) as Color;
                 ButtonSwitchEditNoteMode.BackgroundColor = mode == EditViewModel.NoteEditMode.EditNote ? activeColor : Colors.Transparent;
                 ButtonSwitchEditPitchCurveMode.BackgroundColor = mode == EditViewModel.NoteEditMode.EditPitchCurve ? activeColor : Colors.Transparent;
                 ButtonSwitchEditPitchAnchorMode.BackgroundColor = mode == EditViewModel.NoteEditMode.EditPitchAnchor ? activeColor : Colors.Transparent;
@@ -269,8 +274,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         _viewModel.WhenAnyValue(x => x.CurrentExpressionEditMode)
             .Subscribe(mode =>
             {
-                SKColorMauiColorConverter converter = new();
-                Color? activeColor = converter.Convert(ThemeColorsManager.Current.ActiveNoteEditModeButton, typeof(Color), null, null!) as Color;
+                Color? activeColor = _skColorConverter.Convert(ThemeColorsManager.Current.ActiveNoteEditModeButton, typeof(Color), null, null!) as Color;
                 ButtonSwitchExpressionHandMode.BackgroundColor = mode == EditViewModel.ExpressionEditMode.Hand ? activeColor : Colors.Transparent;
                 ButtonSwitchExpressionEditMode.BackgroundColor = mode == EditViewModel.ExpressionEditMode.Edit ? activeColor : Colors.Transparent;
                 ButtonSwitchExpressionEraserMode.BackgroundColor = mode == EditViewModel.ExpressionEditMode.Eraser ? activeColor : Colors.Transparent;
@@ -400,11 +404,6 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             Debug.WriteLine($"钢琴卷帘原生视图类型: {pianoRollPlatformView?.GetType().FullName}");
             if (pianoRollPlatformView is Android.Views.View pianoRollAndroidView)
             {
-                if (pianoRollAndroidView == null)
-                {
-                    Debug.WriteLine("放大镜初始化失败，无法获取钢琴卷帘原生视图");
-                    return;
-                }
                 magnifier = null;
                 magnifier = new Android.Widget.Magnifier.Builder(pianoRollAndroidView)
                     .SetInitialZoom(1.5f)              // 增加缩放倍数
@@ -432,11 +431,6 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             Debug.WriteLine($"表情画布原生视图类型: {expressionCanvasPlatformView?.GetType().FullName}");
             if (expressionCanvasPlatformView is Android.Views.View expressionCanvasAndroidView)
             {
-                if (expressionCanvasPlatformView == null)
-                {
-                    Debug.WriteLine("放大镜初始化失败，无法获取表情画布原生视图");
-                    return;
-                }
                 expressionMagnifier = null;
                 expressionMagnifier = new Android.Widget.Magnifier.Builder(expressionCanvasAndroidView)
                     .SetInitialZoom(1.5f)              // 增加缩放倍数

@@ -19,10 +19,16 @@ Phase 1 (Stability) で対処すべき 11 件を特定。推定作業量 ~16h。
 | Date | Reviewer | Scope | Grade | Blockers | Recommended | Low |
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-03-18 | fresh-eyes (claude-opus-4-6) | Phase 1 全変更差分 | B− | 6 | 9 | 3 |
+| 2026-03-18 | fresh-eyes #2 (claude-opus-4-6) | Phase 1 全変更 (Blocker修正後) | B− | 4 | 8 | 5 |
 
+### Review #1
 Blocker 6件: 修正完了・検証済み
 Recommended 9件: 全完了 (ATO-02, EP-03 は Blocker 同時修正。EP-04 は Phase 2 送り。EP-05〜EP-07, GP-02, GP-04, SS-02 完了)
 Low 3件 (GP-03, DN-01, IFO-01): Phase 2 以降。
+### Review #2
+Blocker 4件 (EP-01, EP-05, EP-08, SS-01): 修正完了 + EP-03 同時修正
+Recommended 8件: EP-04(コメント追加), EP-06, EP-07, GP-01, ATO-01, ATO-02, ATO-03 を修正予定。OP-01 は Phase 3 送り。
+Low 5件: Phase 2 以降。
 
 ## Backlog
 
@@ -63,6 +69,23 @@ Cold Review 修正 (PRブロッカー)
 - [x] GP-04: 未使用 _cts 削除 — 完了 2026-03-18
 - [x] SS-02: CheckPermission if(true) 修正 — 完了 2026-03-18
 - [ ] EP-04: PitchCanvas SKPath キャッシュ化 → Phase 2 送り
+
+#### Cold Review #2 修正 (ブロッカー)
+- [x] **[CR2-1]** EP-01: PhonemeCanvas/PitchCanvas SKPath キャッシュ化 — 完了 2026-03-18
+- [x] **[CR2-2]** EP-05: EditPage SKPaint/SKFont/SKPath フィールド Dispose 追加 — 完了 2026-03-18
+- [x] **[CR2-3]** EP-08: EndUndoGroup 二重呼び出し修正 — 完了 2026-03-18
+- [x] **[CR2-4]** SS-01: 初期化失敗後の HomePage ナビゲーション防止 — 完了 2026-03-18
+- [x] **[CR2-5]** EP-03: GC.SuppressFinalize 位置修正 — 完了 2026-03-18
+
+#### Cold Review #2 推奨修正
+- [ ] EP-04: テーマ変更時の SKPaint 色陳腐化をコメント文書化
+- [ ] EP-06: SKColorMauiColorConverter 静的キャッシュ化
+- [ ] EP-07: InitExpressionMagnifier 変数名不一致修正
+- [ ] GP-01: HandleTouchDown try-catch → upsert パターン
+- [ ] ATO-01: _disposed volatile 化
+- [ ] ATO-02: PlaybackLoop _audioTrack ローカルコピー
+- [ ] ATO-03: Stop() _disposed ガード追加
+- [ ] OP-01: RequestStoragePermissionAsync 常に true → Phase 3 送り
 
 ### Phase 2 — Touch Performance (Priority: HIGH)
 
