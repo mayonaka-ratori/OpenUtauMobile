@@ -12,12 +12,13 @@ using Stream = Android.Media.Stream;
 
 namespace OpenUtauMobile.Platforms.Android.Utils.Audio
 {
-    public class AudioTrackOutput : IAudioOutput
+    public class AudioTrackOutput : IAudioOutput, IDisposable
     {
-        private readonly AudioTrack? _audioTrack;
+        private AudioTrack? _audioTrack;
         private Thread? _playbackThread; // 播放线程
-        private bool _isPlaying = false; // 播放线程是否正在进行
+        private volatile bool _isPlaying = false; // 播放线程是否正在进行
         private bool _isInitialized = false; // 是否已初始化
+        private bool _disposed = false; // Dispose済みガード
 
         private ISampleProvider? _sampleProvider; // 样本提供器成员
         private int _bufferSize; // 缓冲区大小
@@ -197,14 +198,14 @@ namespace OpenUtauMobile.Platforms.Android.Utils.Audio
 
             if (_playbackThread != null && _playbackThread.IsAlive)
             {
-                _playbackThread.Join(); // 等待播放线程结束
+                _playbackThread.Join(1000); // 等待播放线程结束 (C-02: タイムアウト付き)
             }
             _audioTrack?.Pause(); // 暂停
         }
 
         public void Play()
         {
-            if (_isPlaying || !_isInitialized || _audioTrack == null || _sampleProvider == null) return; // 如果正在播放或未初始化则返回
+            if (_disposed || _isPlaying || !_isInitialized || _audioTrack == null || _sampleProvider == null) return; // 如果正在播放或未初始化则返回
 
             _isPlaying = true; // 设置为正在播放
             _audioTrack.Play(); // 播放
@@ -250,7 +251,39 @@ namespace OpenUtauMobile.Platforms.Android.Utils.Audio
 
         public void SelectDevice(Guid guid, int deviceNumber)
         {
-            
+
+        }
+
+        /// <summary>
+        /// AudioTrack ネイティブリソースを解放する (A-09)。
+        /// アプリ終了時に呼ぶこと。EditPage.Dispose() からは呼ばない
+        /// （AudioTrackOutput はアプリスコープのシングルトンのため）。
+        /// </summary>
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            // Stop playback loop first so blocking Write() is unblocked
+            _isPlaying = false;
+            try { _audioTrack?.Stop(); } catch (Exception) { /* already stopped */ }
+            // Now wait for playback thread to exit
+            if (_playbackThread != null && _playbackThread.IsAlive)
+            {
+                if (!_playbackThread.Join(TimeSpan.FromSeconds(2)))
+                    Log.Warning("AudioTrackOutput: playback thread did not exit within 2s timeout");
+            }
+            // Release native resources after thread has exited
+            try
+            {
+                _audioTrack?.Release();
+                _audioTrack?.Dispose();
+                _audioTrack = null;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"AudioTrackOutput Dispose 中に例外: {ex}");
+            }
+            GC.SuppressFinalize(this);
         }
 
         public void Stop()
@@ -261,7 +294,7 @@ namespace OpenUtauMobile.Platforms.Android.Utils.Audio
                 if (_playbackThread != null && _playbackThread.IsAlive)
                 {
                     _isPlaying = false; // 设为没有播放
-                    _playbackThread.Join(); // 等待播放线程结束
+                    _playbackThread.Join(1000); // 等待播放线程结束 (C-02: タイムアウト付き)
                 }
 
                 if (_audioTrack != null)

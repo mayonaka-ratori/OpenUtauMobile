@@ -4,7 +4,7 @@ using SkiaSharp.Views.Maui;
 using System.Diagnostics;
 
 namespace OpenUtauMobile.Views.Utils;
-public class GestureProcessor
+public class GestureProcessor : IDisposable
 {
     private readonly Transformer _transformer;
 
@@ -28,6 +28,11 @@ public class GestureProcessor
 
     // 用于标记是否已经开始拖动
     private bool _hasPanStarted = false;
+
+    // タッチスロットリング (60Hz)
+    private const int ThrottleIntervalMs = 16;
+    private long _lastPanTicks;
+    private long _lastZoomTicks;
 
     // 双击检测相关
     private SKPoint? _lastTapPosition = null;
@@ -74,6 +79,19 @@ public class GestureProcessor
     private void HandleTouchCancel(SKTouchEventArgs e)
     {
         Debug.WriteLine($"Touch cancelled: {e.Id}");
+        _activePoints.Remove(e.Id);
+        _pointQueue.Clear();
+        switch (_activePoints.Count)
+        {
+            case 0:
+                if (_currentState == GestureState.Pan)
+                    PanEnd?.Invoke(this, new PanEndEventArgs(e.Location));
+                FinalizeGesture();
+                break;
+            case 1 when _currentState == GestureState.Zoom || _currentState == GestureState.XZoom || _currentState == GestureState.YZoom:
+                SwitchToPanFromZoom();
+                break;
+        }
     }
 
     /// <summary>
@@ -222,6 +240,7 @@ public class GestureProcessor
     private void StartGestureDetection(TouchPoint point)
     {
         _cts?.Cancel();
+        _cts?.Dispose();
         _cts = new CancellationTokenSource();
     }
 
@@ -242,6 +261,7 @@ public class GestureProcessor
 
             if (_currentState == GestureState.Pan)
             {
+                if (ShouldThrottle(ref _lastPanTicks)) return;
                 PanUpdate?.Invoke(this, new PanUpdateEventArgs(point.LastPosition));
             }
         }
@@ -291,6 +311,7 @@ public class GestureProcessor
 
     private void HandleZoomGestureMove()
     {
+        if (ShouldThrottle(ref _lastZoomTicks)) return;
         var points = _activePoints.Values.Take(2).ToArray();
         if (_currentState == GestureState.XZoom)
             XZoomUpdate?.Invoke(this, new ZoomUpdateEventArgs(points[0].LastPosition, points[1].LastPosition));
@@ -309,6 +330,14 @@ public class GestureProcessor
     #endregion
 
     #region 辅助方法
+    private bool ShouldThrottle(ref long lastTicks)
+    {
+        long now = Environment.TickCount64;
+        if (now - lastTicks < ThrottleIntervalMs) return true;
+        lastTicks = now;
+        return false;
+    }
+
     private bool CheckMoveThreshold(TouchPoint point)
     {
         var delta = point.LastPosition - point.StartPosition;
@@ -319,6 +348,30 @@ public class GestureProcessor
     {
         _cts?.Cancel();
         _currentState = GestureState.None;
+    }
+
+    /// <summary>
+    /// 全イベント購読をクリアし、内部リソースを解放する。
+    /// EditPage.Dispose() から呼ぶこと。
+    /// </summary>
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+        // 全イベントの invocation list をクリア
+        Tap = null;
+        DoubleTap = null;
+        PanStart = null;
+        PanUpdate = null;
+        PanEnd = null;
+        ZoomStart = null;
+        ZoomUpdate = null;
+        XZoomStart = null;
+        XZoomUpdate = null;
+        YZoomStart = null;
+        YZoomUpdate = null;
+        // CancellationTokenSource を解放
+        _cts?.Cancel();
+        _cts?.Dispose();
     }
 
     private void FinalizeGesture()

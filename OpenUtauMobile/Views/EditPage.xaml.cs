@@ -30,10 +30,13 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 {
     // 管理资源释放
     private readonly CompositeDisposable _disposables = [];
+    private bool _disposed = false; // Dispose 二重呼び出しガード (B-02)
     private readonly EditViewModel _viewModel;
     // 定时器
     private IDispatcherTimer PlaybackTimer { get; }
     private IDispatcherTimer AutoSaveTimer { get; }
+    private readonly EventHandler _playbackTimerTickHandler;
+    private readonly EventHandler _autoSaveTimerTickHandler;
     //  走带画布手势处理器
     private readonly GestureProcessor _trackGestureProcessor;
     // 时间轴画布手势处理器
@@ -84,6 +87,54 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
     {
         Style = SKPaintStyle.Fill
     };
+    // 再生位置ライン（固定色 #B3F353）
+    private static readonly SKPaint _playbackPosPaint = new()
+    {
+        StrokeWidth = 3f,
+        Color = SKColor.Parse("#B3F353"),
+    };
+    // PianoKeysCanvas テキスト（色はループ内で設定）
+    private readonly SKPaint _pianoKeyTextPaint = new();
+    // PianoKeysCanvas フォント（Size は PaintSurface 内でズームに応じて更新）
+    private readonly SKFont _pianoKeyFont = new();
+    // PianoRollKeysBackground 黒鍵背景（テーマ色）
+    private readonly SKPaint _pianoRollBlackKeyBgPaint = new()
+    {
+        Style = SKPaintStyle.Fill,
+        Color = ThemeColorsManager.Current.BlackPianoRollBackground,
+    };
+    // PianoRollPitchCanvas タッチカーソル（固定色 Yellow）
+    private static readonly SKPaint _touchCursorPaint = new()
+    {
+        Color = SKColors.Yellow,
+        StrokeWidth = 2,
+        IsAntialias = false,
+        Style = SKPaintStyle.Stroke,
+    };
+    // PhonemeCanvas 音素アウトライン（Color はトラック色で毎フレーム設定）
+    private readonly SKPaint _phonemeOutlinePaint = new()
+    {
+        Style = SKPaintStyle.Stroke,
+        StrokeWidth = 2,
+    };
+    // PhonemeCanvas 位置ライン（テーマ色）
+    private readonly SKPaint _phonemePosLinePaint = new()
+    {
+        Style = SKPaintStyle.Stroke,
+        StrokeWidth = 3,
+        Color = ThemeColorsManager.Current.PhonemePosLine,
+    };
+    // 共用テキストフォント 12pt（Size・Typeface は PaintSurface 内で設定）
+    private readonly SKFont _textFont12 = new();
+    #endregion
+
+    #region Drawable インスタンスキャッシュ（D-07: PaintSurface 内での毎フレーム new を排除）
+    private DrawableTrackBackground? _drawableTrackBackground;
+    // DrawablePart は UPart ごとにキャッシュ（Dictionary で管理）
+    private readonly Dictionary<UPart, DrawablePart> _drawablePartCache = new();
+    private DrawableNotes? _drawableNotes;
+    private DrawableTickBackground? _drawableTickBackground;
+    private DrawablePianoRollTickBackground? _drawablePianoRollTickBackground;
     #endregion
 
     public EditPage(string path)
@@ -112,20 +163,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             DeviceDisplay.Current.KeepScreenOn = true;
         }
         // 在主布局改变后设置正确高度
-        MainLayout.SizeChanged += (s, e) =>
-        {
-            _viewModel.MainLayoutHeight = MainLayout.Height;
-            _viewModel.SetBoundDivControl();
-            _viewModel.UpdateTrackMainEditBoundaries();
-        };
+        MainLayout.SizeChanged += OnMainLayoutSizeChanged;
         // 在主编辑区改变后设置正确高度
-        MainEdit.SizeChanged += (s, e) =>
-        {
-            _viewModel.MainEditHeight = MainEdit.Height;
-            _viewModel.DivExpPosY = _viewModel.MainEditHeight - _viewModel.ExpHeight;
-            _viewModel.SetBoundExpDivControl();
-            _viewModel.UpdatePianoRollExpBoundaries();
-        };
+        MainEdit.SizeChanged += OnMainEditSizeChanged;
         // 走带画布手势处理器初始化
         _trackGestureProcessor = new GestureProcessor(_viewModel.TrackTransformer);
         // 时间轴画布手势处理器初始化
@@ -237,20 +277,22 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         // 回放定时器，定时通知回放管理器更新播放位置
         PlaybackTimer = Dispatcher.CreateTimer();
         PlaybackTimer.Interval = TimeSpan.FromSeconds(1 / (double)Preferences.Default.PlaybackRefreshRate);
-        PlaybackTimer.Tick += (s, e) =>
+        _playbackTimerTickHandler = (s, e) =>
         {
             PlaybackManager.Inst.UpdatePlayPos();
             _viewModel.Playing = PlaybackManager.Inst.Playing;
             PlaybackAutoScroll();
         };
+        PlaybackTimer.Tick += _playbackTimerTickHandler;
         PlaybackTimer.Start();
         // 自动保存定时器
         AutoSaveTimer = Dispatcher.CreateTimer();
         AutoSaveTimer.Interval = TimeSpan.FromSeconds(30);
-        AutoSaveTimer.Tick += (s, e) =>
+        _autoSaveTimerTickHandler = (s, e) =>
         {
             DocManager.Inst.AutoSave();
         };
+        AutoSaveTimer.Tick += _autoSaveTimerTickHandler;
         AutoSaveTimer.Start();
 
         // 订阅opu后端命令
@@ -276,6 +318,21 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         _viewModel.PianoRollTransformer.SetPanX(0f);
         _viewModel.PianoRollTransformer.SetPanY(-(float)(48 * _viewModel.HeightPerPianoKey * _viewModel.Density * _viewModel.PianoRollTransformer.ZoomY));
         Debug.WriteLine($"当前走带画布变换器: ZoomX={_viewModel.TrackTransformer.ZoomX}, ZoomY={_viewModel.TrackTransformer.ZoomY}, PanX={_viewModel.TrackTransformer.PanX}, PanY={_viewModel.TrackTransformer.PanY}");
+    }
+
+    private void OnMainLayoutSizeChanged(object? sender, EventArgs e)
+    {
+        _viewModel.MainLayoutHeight = MainLayout.Height;
+        _viewModel.SetBoundDivControl();
+        _viewModel.UpdateTrackMainEditBoundaries();
+    }
+
+    private void OnMainEditSizeChanged(object? sender, EventArgs e)
+    {
+        _viewModel.MainEditHeight = MainEdit.Height;
+        _viewModel.DivExpPosY = _viewModel.MainEditHeight - _viewModel.ExpHeight;
+        _viewModel.SetBoundExpDivControl();
+        _viewModel.UpdatePianoRollExpBoundaries();
     }
 
     private void PlaybackAutoScroll()
@@ -1665,19 +1722,31 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         }
         // 设置画布变换
         e.Surface.Canvas.SetMatrix(_viewModel.TrackTransformer.GetTransformMatrix());
+        // 绘制轨道分割线（キャッシュ済みインスタンスを再利用）
+        _drawableTrackBackground ??= new DrawableTrackBackground(e.Surface.Canvas, _viewModel.HeightPerTrack * _viewModel.Density);
+        _drawableTrackBackground.Canvas = e.Surface.Canvas;
+        _drawableTrackBackground.HeightPerTrack = _viewModel.HeightPerTrack * _viewModel.Density;
+        _drawableTrackBackground.Draw();
         // 清空可绘制对象集合
         _viewModel.DrawableParts.Clear();
-        // 绘制轨道分割线
-        DrawableTrackBackground drawableTrackBackground = new(e.Surface.Canvas, _viewModel.HeightPerTrack * _viewModel.Density);
-        drawableTrackBackground.Draw();
-        // 绘制分片
-        foreach (UPart part in DocManager.Inst.Project.parts)
+        // キャッシュから削除されたパートのエントリを除去
+        var currentParts = DocManager.Inst.Project.parts;
+        var staleKeys = _drawablePartCache.Keys.Where(k => !currentParts.Contains(k)).ToList();
+        foreach (var staleKey in staleKeys)
+        {
+            _drawablePartCache[staleKey].Dispose();
+            _drawablePartCache.Remove(staleKey);
+        }
+        // 绘制分片（DrawablePart インスタンスを UPart ごとにキャッシュ）
+        foreach (UPart part in currentParts)
         {
             bool isResizeable = _viewModel.SelectedParts.Contains(part) && _viewModel.CurrentTrackEditMode == EditViewModel.TrackEditMode.Edit;
-            DrawablePart drawablePart = new(
-                e.Surface.Canvas,
-                part,
-                _viewModel,
+            if (!_drawablePartCache.TryGetValue(part, out var drawablePart))
+            {
+                drawablePart = new DrawablePart(_viewModel);
+                _drawablePartCache[part] = drawablePart;
+            }
+            drawablePart.Update(e.Surface.Canvas, part,
                 isSelected: _viewModel.SelectedParts.Contains(part),
                 isResizable: isResizeable);
             _viewModel.DrawableParts.Add(drawablePart);
@@ -1728,12 +1797,20 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         //e.Surface.Canvas.SetMatrix(_viewModel.PianoRollTransformer.GetTransformMatrix());
         if (_viewModel.SelectedParts[0] is UVoicePart part)
         {
-            DrawableNotes drawableNotes = new(canvas: e.Surface.Canvas,
-                part: part,
-                viewModel: _viewModel,
-                notesColor: ViewConstants.TrackSkiaColors[DocManager.Inst.Project.tracks[part.trackNo].TrackColor]);
-            drawableNotes.Draw();
-            _viewModel.EditingNotes = drawableNotes;
+            // DrawableNotes インスタンスをキャッシュし、毎フレームの new を排除
+            if (_drawableNotes == null)
+            {
+                _drawableNotes = new DrawableNotes(e.Surface.Canvas, part, _viewModel,
+                    ViewConstants.TrackSkiaColors[DocManager.Inst.Project.tracks[part.trackNo].TrackColor]);
+            }
+            else
+            {
+                _drawableNotes.Canvas = e.Surface.Canvas;
+                _drawableNotes.Part = part;
+                _drawableNotes.NotesColor = ViewConstants.TrackSkiaColors[DocManager.Inst.Project.tracks[part.trackNo].TrackColor];
+            }
+            _drawableNotes.Draw();
+            _viewModel.EditingNotes = _drawableNotes;
         }
     }
 
@@ -1750,13 +1827,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         Canvas.Clear(SKColors.Transparent);
         // 计算位置
         float x = (float)(_viewModel.PlayPosTick * _viewModel.TrackTransformer.ZoomX + _viewModel.TrackTransformer.PanX);
-        // 创建画笔
-        using (SKPaint paint = new SKPaint())
-        {
-            paint.StrokeWidth = 3f; // 设置线条宽度
-            paint.Color = SKColor.Parse("#B3F353"); // 设置线条颜色为绿色
-            Canvas.DrawLine(x, 0f, x, Canvas.DeviceClipBounds.Height, paint);
-        }
+        Canvas.DrawLine(x, 0f, x, Canvas.DeviceClipBounds.Height, _playbackPosPaint);
     }
 
     private void PianoKeysCanvas_PaintSurface(object sender, SkiaSharp.Views.Maui.SKPaintSurfaceEventArgs e)
@@ -1782,21 +1853,17 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         y = (float)(topKeyNum + 0.5f) * heightPerPianoKey * _viewModel.PianoRollTransformer.ZoomY + _viewModel.PianoRollTransformer.PanY;
         //heightPerPianoKey = heightPerPianoKey * _viewModel.PianoRollTransformer.ZoomY;
         PianoKey? drawingKey = null;
-        SKPaint textPaint = new();
-        SKFont font = new()
-        {
-            Size = (float)(heightPerPianoKey * 0.5 * _viewModel.PianoRollTransformer.ZoomY),
-            Typeface = ObjectProvider.NotoSansCJKscRegularTypeface
-        };
+        _pianoKeyFont.Size = (float)(heightPerPianoKey * 0.5 * _viewModel.PianoRollTransformer.ZoomY);
+        _pianoKeyFont.Typeface = ObjectProvider.NotoSansCJKscRegularTypeface;
         for (int i = topKeyNum; i < bottomKeyNum; i++)
         {
             drawingKey = ViewConstants.PianoKeys[i];
             int numberedNotationIndex = drawingKey.NoteNum - 60 - DocManager.Inst.Project.key;
-            textPaint.Color = drawingKey.IsBlackKey ? ThemeColorsManager.Current.BlackPianoKeyText : ThemeColorsManager.Current.WhitePianoKeyText;
-            Canvas.DrawText(drawingKey.NoteName, 5, y, font, textPaint);
+            _pianoKeyTextPaint.Color = drawingKey.IsBlackKey ? ThemeColorsManager.Current.BlackPianoKeyText : ThemeColorsManager.Current.WhitePianoKeyText;
+            Canvas.DrawText(drawingKey.NoteName, 5, y, _pianoKeyFont, _pianoKeyTextPaint);
             if (numberedNotationIndex >= 0 && numberedNotationIndex <= 11)
             {
-                Canvas.DrawText(MusicMath.NumberedNotations[numberedNotationIndex], 50 * (float)_viewModel.Density, y, font, textPaint);
+                Canvas.DrawText(MusicMath.NumberedNotations[numberedNotationIndex], 50 * (float)_viewModel.Density, y, _pianoKeyFont, _pianoKeyTextPaint);
             }
             y += heightPerPianoKey * _viewModel.PianoRollTransformer.ZoomY;
         }
@@ -1884,9 +1951,10 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         e.Surface.Canvas.Clear(ThemeColorsManager.Current.TrackBackground);
         // 设置画布变换
         e.Surface.Canvas.SetMatrix(_viewModel.TrackTransformer.GetTransformMatrix());
-        // 绘制走带网格背景
-        DrawableTickBackground drawableTickBackground = new(e.Surface.Canvas, _viewModel, _viewModel.TrackSnapDiv);
-        drawableTickBackground.Draw();
+        // 绘制走带网格背景（キャッシュ済みインスタンスを再利用）
+        _drawableTickBackground ??= new DrawableTickBackground(e.Surface.Canvas, _viewModel);
+        _drawableTickBackground.Canvas = e.Surface.Canvas;
+        _drawableTickBackground.Draw();
     }
 
     private void ButtonRemovePart_Clicked(object sender, EventArgs e)
@@ -1914,9 +1982,10 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         }
         // 设置画布变换
         e.Surface.Canvas.SetMatrix(_viewModel.PianoRollTransformer.GetTransformMatrix());
-        // 绘制钢琴卷帘网格背景
-        DrawablePianoRollTickBackground drawablePianoRollTickBackground = new(e.Surface.Canvas, _viewModel);
-        drawablePianoRollTickBackground.Draw();
+        // 绘制钢琴卷帘网格背景（キャッシュ済みインスタンスを再利用）
+        _drawablePianoRollTickBackground ??= new DrawablePianoRollTickBackground(e.Surface.Canvas, _viewModel);
+        _drawablePianoRollTickBackground.Canvas = e.Surface.Canvas;
+        _drawablePianoRollTickBackground.Draw();
     }
 
     private static bool IsOpenGLESSupported()
@@ -1946,16 +2015,11 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         int topKeyNum = Math.Max(0, (int)Math.Floor(viewTop / _viewModel.HeightPerPianoKey / _viewModel.Density));
         int bottomKeyNum = Math.Min(ViewConstants.TotalPianoKeys, (int)Math.Ceiling(viewBottom / heightPerPianoKey));
         float y = (float)(topKeyNum * heightPerPianoKey) * _viewModel.PianoRollTransformer.ZoomY + _viewModel.PianoRollTransformer.PanY;
-        SKPaint paint = new SKPaint
-        {
-            Style = SKPaintStyle.Fill,
-            Color = ThemeColorsManager.Current.BlackPianoRollBackground,
-        };
         for (int i = topKeyNum; i < bottomKeyNum; i++)
         {
             if (ViewConstants.PianoKeys[i].IsBlackKey)
             {
-                canvas.DrawRect(0, y, canvas.DeviceClipBounds.Size.Width, heightPerPianoKey * _viewModel.PianoRollTransformer.ZoomY, paint);
+                canvas.DrawRect(0, y, canvas.DeviceClipBounds.Size.Width, heightPerPianoKey * _viewModel.PianoRollTransformer.ZoomY, _pianoRollBlackKeyBgPaint);
             }
             y += heightPerPianoKey * _viewModel.PianoRollTransformer.ZoomY;
         }
@@ -2199,27 +2263,75 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         // 绘制触摸中心
         if (IsUserDrawingCurve)
         {
-            SKPaint centerPaint = new()
-            {
-                Color = SKColors.Yellow,
-                StrokeWidth = 2,
-                IsAntialias = false,
-                Style = SKPaintStyle.Stroke,
-            };
-            float radius = 10f;
-            canvas.DrawCircle(TouchingPoint, radius, centerPaint);
+            canvas.DrawCircle(TouchingPoint, 10f, _touchCursorPaint);
+        }
+    }
+
+    /// <summary>
+    /// ページが非表示になるとき、タイマーを一時停止する。
+    /// Dispose とは異なり、OnAppearing で復帰できる。
+    /// </summary>
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        PlaybackTimer?.Stop();
+        AutoSaveTimer?.Stop();
+    }
+
+    /// <summary>
+    /// ページが再表示されるとき、タイマーを再開する。
+    /// PlaybackTimer は再生中のみ再開する。
+    /// </summary>
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        AutoSaveTimer?.Start();
+        if (PlaybackManager.Inst.Playing)
+        {
+            PlaybackTimer?.Start();
         }
     }
 
     public void Dispose()
     {
         GC.SuppressFinalize(this); // 防止终结器调用
+        if (_disposed) return;
+        _disposed = true;
         Debug.WriteLine("\n\n==============EditPage Dispose===============\n\n");
         PlaybackTimer.Stop();
+        PlaybackTimer.Tick -= _playbackTimerTickHandler;
+        AutoSaveTimer.Stop();
+        AutoSaveTimer.Tick -= _autoSaveTimerTickHandler;
+        // ScrollView スクロールイベントを解除
+        ScrollTrckHeaders.Scrolled -= ScrollTrckHeaders_Scrolled;
+        // SizeChanged イベントを解除 (A-06)
+        MainLayout.SizeChanged -= OnMainLayoutSizeChanged;
+        MainEdit.SizeChanged -= OnMainEditSizeChanged;
+        // GestureProcessor の全イベントを解放 (A-05)
+        _trackGestureProcessor.Dispose();
+        _timeLineGestureProcessor.Dispose();
+        _pianoRollGestureProcessor.Dispose();
+        _phonemeGestureProcessor.Dispose();
+        _expressionGestureProcessor.Dispose();
+        // キャッシュ済み Drawable インスタンスを破棄 (Phase C / D-07)
+        _drawableNotes?.Dispose();
+        _drawableTickBackground?.Dispose();
+        _drawablePianoRollTickBackground?.Dispose();
+        foreach (var dp in _drawablePartCache.Values) dp.Dispose();
+        _drawablePartCache.Clear();
+        // Android Magnifier ネイティブリソースを解放 (A-07)
+#if ANDROID29_0_OR_GREATER
+        magnifier?.Dispose();
+        magnifier = null;
+        expressionMagnifier?.Dispose();
+        expressionMagnifier = null;
+#endif
+        // ReactiveUI サブスクリプションを先に破棄してから ViewModel を破棄する (EP-03)
+        _disposables.Dispose();
+        _viewModel.Dispose();
         DocManager.Inst.RemoveSubscriber(this);
         PlaybackManager.Inst.StopPlayback();
         DeviceDisplay.Current.KeepScreenOn = false; // 解除屏幕常亮
-        _disposables.Dispose();
     }
 
     private void ButtonPianoRollSnapToGrid_Clicked(object sender, EventArgs e)
@@ -2405,6 +2517,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             return; // 如果‘取消’，则不关闭
         }
         await Navigation.PopModalAsync(); // 不保存，直接退出
+        Dispose(); // (B-02) 保存なし離脱パスでも完全破棄を保証
     }
 
     private async Task<bool> AskIfSaveAndContinue()
@@ -2465,19 +2578,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 
         float y = 25f * (float)_viewModel.Density;
         float height = 20f * (float)_viewModel.Density;
-        SKPaint phonemePaint = new()
-        {
-            Style = SKPaintStyle.Stroke,
-            StrokeWidth = 2,
-            Color = ViewConstants.TrackSkiaColors[DocManager.Inst.Project.tracks[part.trackNo].TrackColor]
-        };
-        SKPaint posLinePaint = new()
-        {
-            Style = SKPaintStyle.Stroke,
-            StrokeWidth = 3,
-            Color = ThemeColorsManager.Current.PhonemePosLine
-        };
-        SKFont textFont = new(ObjectProvider.NotoSansCJKscRegularTypeface, 12 * (float)_viewModel.Density);
+        _phonemeOutlinePaint.Color = ViewConstants.TrackSkiaColors[DocManager.Inst.Project.tracks[part.trackNo].TrackColor];
+        _textFont12.Size = 12 * (float)_viewModel.Density;
+        _textFont12.Typeface = ObjectProvider.NotoSansCJKscRegularTypeface;
         // 遍历音素
         foreach (var phoneme in part.phonemes)
         {
@@ -2524,7 +2627,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                 //var polyline = new PolylineGeometry(new Point[] { point0, point1, point2, point3, point4 }, true);
                 // 音素多边形
                 //Debug.WriteLine($"Phoneme {phoneme.phoneme} from {x0} to {x4}");
-                canvas.DrawPath(path, phonemePaint);
+                canvas.DrawPath(path, _phonemeOutlinePaint);
                 //    // preutter控制点
                 //    brush = phoneme.preutterDelta.HasValue ? pen!.Brush : ThemeManager.BackgroundBrush;
                 //    using (var state = context.PushTransform(Matrix.CreateTranslation(x0, y + y0 - 1)))
@@ -2539,10 +2642,10 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                 //    }
                 //}
                 // 音素position竖线
-                canvas.DrawLine(new SKPoint(x, y), new SKPoint(x, y + height), posLinePaint);
+                canvas.DrawLine(new SKPoint(x, y), new SKPoint(x, y + height), _phonemePosLinePaint);
                 // 音素文本
                 string displayPhoneme = phoneme.phonemeMapped ?? phoneme.phoneme;
-                canvas.DrawText(displayPhoneme, x + 2, 15 * (float)_viewModel.Density, textFont, ThemeColorsManager.Current.PhonemeTextPaint);
+                canvas.DrawText(displayPhoneme, x + 2, 15 * (float)_viewModel.Density, _textFont12, ThemeColorsManager.Current.PhonemeTextPaint);
             }
         }
     }
@@ -2643,9 +2746,10 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             {
                 float radius = 10f;
                 canvas.DrawCircle(drawingExpressionPointer, radius, ThemeColorsManager.Current.DrawingCursorPaint);
-                using SKFont textFont = new(ObjectProvider.NotoSansCJKscRegularTypeface, 12 * (float)_viewModel.Density);
-                // 绘制数值
-                canvas.DrawText($"{_viewModel.currentExpressionValue}", drawingExpressionPointer.X - 12f, drawingExpressionPointer.Y - 12f, textFont, ThemeColorsManager.Current.ExpressionOptionTextPaint);
+                _textFont12.Size = 12 * (float)_viewModel.Density;
+                _textFont12.Typeface = ObjectProvider.NotoSansCJKscRegularTypeface;
+                // 绘制数値
+                canvas.DrawText($"{_viewModel.currentExpressionValue}", drawingExpressionPointer.X - 12f, drawingExpressionPointer.Y - 12f, _textFont12, ThemeColorsManager.Current.ExpressionOptionTextPaint);
             }
             return;
         }
@@ -2711,7 +2815,8 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         {
             const int fontSize = 12;
             int padding = (int)(4 * _viewModel.Density);
-            using SKFont textFont = new(ObjectProvider.NotoSansCJKscRegularTypeface, fontSize * (float)_viewModel.Density);
+            _textFont12.Size = fontSize * (float)_viewModel.Density;
+            _textFont12.Typeface = ObjectProvider.NotoSansCJKscRegularTypeface;
             for (int i = 0; i < descriptor.options.Length; ++i)
             {
                 string optionText = descriptor.options[i]; // 选项文字
@@ -2721,10 +2826,10 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                 }
                 float y = optionHeight * (descriptor.options.Length - 1 - i + 0.5f);
                 const float x = 12f;
-                float width = textFont.MeasureText(optionText) + padding + padding;
+                float width = _textFont12.MeasureText(optionText) + padding + padding;
                 float height = fontSize * (float)_viewModel.Density + padding + padding;
                 canvas.DrawRect(x, y, width, height, ThemeColorsManager.Current.ExpressionOptionBoxPaint);
-                canvas.DrawText(optionText, x + 4, y + 14 * (float)_viewModel.Density, textFont, ThemeColorsManager.Current.ExpressionOptionTextPaint);
+                canvas.DrawText(optionText, x + 4, y + 14 * (float)_viewModel.Density, _textFont12, ThemeColorsManager.Current.ExpressionOptionTextPaint);
             }
         }
         // 绘制触摸中心
@@ -2732,9 +2837,10 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         {
             float radius = 10f;
             canvas.DrawCircle(drawingExpressionPointer, radius, ThemeColorsManager.Current.DrawingCursorPaint);
-            using SKFont textFont = new(ObjectProvider.NotoSansCJKscRegularTypeface, 12 * (float)_viewModel.Density);
-            // 绘制数值
-            canvas.DrawText($"{_viewModel.currentExpressionValue}", drawingExpressionPointer.X - 12f, drawingExpressionPointer.Y - 12f, textFont, ThemeColorsManager.Current.ExpressionOptionTextPaint);
+            _textFont12.Size = 12 * (float)_viewModel.Density;
+            _textFont12.Typeface = ObjectProvider.NotoSansCJKscRegularTypeface;
+            // 绘制数値
+            canvas.DrawText($"{_viewModel.currentExpressionValue}", drawingExpressionPointer.X - 12f, drawingExpressionPointer.Y - 12f, _textFont12, ThemeColorsManager.Current.ExpressionOptionTextPaint);
         }
     }
 

@@ -24,7 +24,7 @@ namespace OpenUtauMobile.Utils
         public static Random Random { get; } = new Random();
         public static IAppLifeCycleHelper AppLifeCycleHelper { get; set; } = null!;
         public static SKTypeface NotoSansCJKscRegularTypeface { get; set; } = null!;
-        public static void Initialize()
+        public static async Task InitializeAsync()
         {
 #if ANDROID
             ExternalStorageService = new OpenUtauMobile.Platforms.Android.Utils.Permission.ExternalStorageService();
@@ -43,7 +43,7 @@ namespace OpenUtauMobile.Utils
 #endif
             try
             {
-                using var stream = FileSystem.OpenAppPackageFileAsync("NotoSansCJKsc-Regular.otf").Result;
+                using var stream = await FileSystem.OpenAppPackageFileAsync("NotoSansCJKsc-Regular.otf").ConfigureAwait(false);
                 NotoSansCJKscRegularTypeface = SKTypeface.FromStream(stream);
             }
             catch (Exception ex)

@@ -2,18 +2,67 @@
 
 ## Current Sprint
 
-Status: NOT STARTED
-Goal: Stabilize OpenUtau Mobile, improve touch performance, complete missing UI features.
+Status: IN PROGRESS
+Goal: Stabilize OpenUtau Mobile — Phase 1 Cold Review fixes
+
+## Audit Log
+
+| Date | Auditor | Scope | Critical | High | Medium | Low |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-03-18 | auditor agent (claude-opus-4-6) | OpenUtauMobile/ 全 .cs/.xaml | 3 | 8 | 5 | 4 |
+
+Phase 1 (Stability) で対処すべき 11 件を特定。推定作業量 ~16h。
+詳細: `.claude/audit-2026-03-18.md`
+
+## Cold Review Log
+
+| Date | Reviewer | Scope | Grade | Blockers | Recommended | Low |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-03-18 | fresh-eyes (claude-opus-4-6) | Phase 1 全変更差分 | B− | 6 | 9 | 3 |
+
+Blocker 6件: 修正完了・検証済み
+Recommended 9件: ATO-02, EP-03 は Blocker と同時修正済み。EP-04 は Phase 2 送り。残り6件 (EP-05〜EP-07, GP-02, GP-04, SS-02) 未着手。
+Low 3件 (GP-03, DN-01, IFO-01): Phase 2 以降。
 
 ## Backlog
 
 ### Phase 1 — Stability (Priority: HIGH)
 
-- [ ] Audit SKPaint allocations in PaintSurface handlers (use auditor agent)
-- [ ] Audit ReactiveUI subscription disposal in all ViewModels
-- [ ] Audit ICmdSubscriber cleanup in all ViewModels
+- [x] Audit SKPaint allocations in PaintSurface handlers → 完了 (D-01〜D-07 特定)
+- [x] Audit ReactiveUI subscription disposal in all ViewModels → 完了 (A-01〜A-03 特定)
+- [x] Audit ICmdSubscriber cleanup in all ViewModels → 完了 (EditViewModel の欠落を確認: A-01)
+- [x] **[P1-1]** EditViewModel IDisposable + CompositeDisposable 実装 `A-01, A-02, A-03` — 完了 2026-03-18
+- [x] **[P1-2]** EditPage 全 SKPaint/SKFont を static フィールドにキャッシュ `D-01` — 完了 2026-03-18
+- [x] **[P1-3]** DrawableNotes/DrawablePart/DrawablePianoRollTickBackground 再利用化 `D-02, D-03, D-04, D-07` — 完了 2026-03-18
+- [x] **[P1-4]** EditPage OnDisappearing/OnAppearing 追加 + AutoSaveTimer 停止 `B-01, A-04` — 完了 2026-03-18
+- [x] **[P1-5]** GestureProcessor イベント解除 + SizeChanged デタッチ `A-05, A-06` — 完了 2026-03-18
+- [x] **[P1-6]** AudioTrackOutput._isPlaying volatile 化 `C-01` — 完了 2026-03-18
+- [x] **[P1-7]** GestureProcessor タッチスロットリング 16ms `D-05` — 完了 2026-03-18
+- [x] **[P1-8]** Magnifier Dispose 漏れ修正 `A-07` — 完了 2026-03-18
+- [x] **[P1-9]** AudioTrackOutput IDisposable 実装 + Join タイムアウト `A-09, C-02` — 完了 2026-03-18
+- [x] **[P1-10]** AttemptExit 不保存パスの Dispose 漏れ修正 + _disposed ガード `B-02` — 完了 2026-03-18
+- [x] **[P1-11]** ObjectProvider.Initialize() .Result 同期ブロック解消 `C-03` — 完了 2026-03-18
 - [ ] Fix audio import crash (upstream issue #1913)
 - [ ] Strengthen autosave — reduce interval, add recovery UI
+
+Cold Review 修正 (PRブロッカー)
+
+- [x] **[CR-1]** ATO-01+02: AudioTrackOutput Dispose 順序修正 + GC.SuppressFinalize 移動 — 完了 2026-03-18
+- [x] **[CR-2]** DP-01: DrawablePart App.Current ?? new Application() 廃止 — 完了 2026-03-18
+- [x] **[CR-3]** EP-01+03: EditPage Timer Tick ハンドラ解除 + Dispose 順序修正 — 完了 2026-03-18
+- [x] **[CR-4]** EP-02: DrawablePart キャッシュ eviction 時 Dispose 追加 — 完了 2026-03-18
+- [x] **[CR-5]** SS-01: SplashScreenPage RemoveSubscriber 追加 — 完了 2026-03-18
+- [x] **[CR-6]** GP-01: HandleTouchCancel _activePoints クリア + ジェスチャー状態リセット — 完了 2026-03-18
+
+### Phase 1 — Cold Review Recommended (残り)
+
+- [ ] EP-05: OnAppearing PlaybackTimer 無条件再開
+- [ ] EP-06: using System.Reactive.Linq 重複削除
+- [ ] EP-07: InvalidateSurface() 重複呼び出し削除
+- [ ] GP-02: ClickThreshold コメント修正
+- [ ] GP-04: 未使用 _cts 削除
+- [ ] SS-02: CheckPermission if(true) 修正
+- [ ] EP-04: PitchCanvas SKPath キャッシュ化 → Phase 2 送り
 
 ### Phase 2 — Touch Performance (Priority: HIGH)
 
@@ -54,7 +103,7 @@ Record architectural decisions and tradeoffs here.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
-| — | — | — |
+| 2026-03-18 | OnDisappearing/OnAppearing を Dispose から分離 | B-01: MAUI は AttemptExit 以外の経路でも OnDisappearing が呼ばれるため、一時停止（復帰可能）と完全破棄の責務を分離 |
 
 ## Core Patch Notes
 

@@ -10,6 +10,7 @@ using OpenUtauMobile.Views.DrawableObjects;
 using OpenUtauMobile.Views.Utils;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
+using System.Reactive.Disposables;
 using Serilog;
 using SkiaSharp;
 using System.Diagnostics;
@@ -17,8 +18,9 @@ using Preferences = OpenUtau.Core.Util.Preferences;
 
 namespace OpenUtauMobile.ViewModels
 {
-    public partial class EditViewModel : ReactiveObject
+    public partial class EditViewModel : ReactiveObject, IDisposable
     {
+        private readonly CompositeDisposable _disposables = new();
         /* UI 相关属性 */
         public double MainLayoutHeight { get; set; } = 1000d;
         public double MainEditHeight { get; set; } = 600d;
@@ -280,86 +282,105 @@ namespace OpenUtauMobile.ViewModels
         {
             // 订阅 DivPosY 的变化
             this.WhenAnyValue(x => x.DivPosY)
-                .Subscribe(_ => UpdateTrackMainEditBoundaries());
+                .Subscribe(_ => UpdateTrackMainEditBoundaries())
+                .DisposeWith(_disposables);
             // 订阅 ExpHeight 的变化
             this.WhenAnyValue(x => x.ExpHeight)
                 .Subscribe(_ =>
                 {
                     DivExpPosY = MainEditHeight - ExpHeight;
                     UpdatePianoRollExpBoundaries();
-                });
+                })
+                .DisposeWith(_disposables);
             // 订阅正在音素化分片列表变化 - 监听集合变化
-            PhonemizingParts.CollectionChanged += (sender, e) =>
+            PhonemizingParts.CollectionChanged += OnPhonemizingPartsChanged;
+            // 订阅选中分片列表变化
+            SelectedParts.CollectionChanged += OnSelectedPartsChanged;
+            // 订阅选中音符列表变化 更新编辑音符
+            // 这个订阅有bug或者是我的问题，有时候失效，后面再看吧。先加个手动触发的函数
+            SelectedNotes.CollectionChanged += OnSelectedNotesChanged;
+        }
+
+        private void OnPhonemizingPartsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            IsPhonemizing = (PhonemizingParts.Count != 0);
+            if (IsPhonemizing)
             {
-                IsPhonemizing = (PhonemizingParts.Count != 0);
-                if (IsPhonemizing)
+                PhonemizingPartName = AppResources.PhonemizingInProgress;
+                foreach (var part in PhonemizingParts)
                 {
-                    PhonemizingPartName = AppResources.PhonemizingInProgress;
-                    foreach (var part in PhonemizingParts)
+                    if (part != null)
                     {
-                        if (part != null)
-                        {
-                            PhonemizingPartName += part.DisplayName + ' ';
-                        }
+                        PhonemizingPartName += part.DisplayName + ' ';
                     }
                 }
-            };
-            // 订阅选中分片列表变化
-            SelectedParts.CollectionChanged += (sender, e) =>
+            }
+        }
+
+        private void OnSelectedPartsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            IsShowRenderPitchButton = false; // 每次选中分片变化时重置渲染音高按钮显示状态
+            IsShowAudioTranscribeButton = false; // 每次选中分片变化时重置干声转换按钮显示状态
+            if (SelectedParts.Count == 0)
             {
-                IsShowRenderPitchButton = false; // 每次选中分片变化时重置渲染音高按钮显示状态
-                IsShowAudioTranscribeButton = false; // 每次选中分片变化时重置干声转换按钮显示状态
-                if (SelectedParts.Count == 0)
+                EditingPart = null; // 清空正在编辑的分片
+                EditingPartName = string.Empty; // 清空编辑分片名称
+                EditingNotes = null; // 清空正在编辑的音符组
+                CurrentPortrait = []; // 清空当前立绘
+                EditingPartColor = Colors.Transparent;
+            }
+            else
+            {
+                // 设置正在编辑的分片为第一个选中的歌声分片
+                foreach (var part in SelectedParts)
                 {
-                    EditingPart = null; // 清空正在编辑的分片
-                    EditingPartName = string.Empty; // 清空编辑分片名称
+                    if (part is UVoicePart voicePart)
+                    {
+                        EditingPart = voicePart;
+                        UpdateIsShowRenderPitchButton();
+                        LoadPortrait();
+                        EditingPartColor = ViewConstants.TrackMauiColors[DocManager.Inst.Project.tracks[voicePart.trackNo].TrackColor];
+                        break;
+                    }
+                }
+                if (EditingPart == null)
+                {
+                    EditingPartName = string.Empty; // 如果没有选中歌声分片，清空编辑分片名称
                     EditingNotes = null; // 清空正在编辑的音符组
-                    CurrentPortrait = []; // 清空当前立绘
-                    EditingPartColor = Colors.Transparent;
+                    if (SelectedParts.Count > 0)
+                    {
+                        if (SelectedParts[0] is UWavePart)
+                        {
+                            // 如果选中的第一个分片是音频分片，显示干声转换按钮
+                            IsShowAudioTranscribeButton = true;
+                        }
+                    }
+                    return;
+                }
+                if (SelectedParts.Count == 1)
+                {
+                    EditingPartName = EditingPart.DisplayName; // 更新编辑分片名称
                 }
                 else
                 {
-                    // 设置正在编辑的分片为第一个选中的歌声分片
-                    foreach (var part in SelectedParts)
-                    {
-                        if (part is UVoicePart voicePart)
-                        {
-                            EditingPart = voicePart;
-                            UpdateIsShowRenderPitchButton();
-                            LoadPortrait();
-                            EditingPartColor = ViewConstants.TrackMauiColors[DocManager.Inst.Project.tracks[voicePart.trackNo].TrackColor];
-                            break;
-                        }
-                    }
-                    if (EditingPart == null)
-                    {
-                        EditingPartName = string.Empty; // 如果没有选中歌声分片，清空编辑分片名称
-                        EditingNotes = null; // 清空正在编辑的音符组
-                        if (SelectedParts.Count > 0)
-                        {
-                            if (SelectedParts[0] is UWavePart)
-                            {
-                                // 如果选中的第一个分片是音频分片，显示干声转换按钮
-                                IsShowAudioTranscribeButton = true;
-                            }
-                        }
-                        return;
-                    }
-                    if (SelectedParts.Count == 1)
-                    {
-                        EditingPartName = EditingPart.DisplayName; // 更新编辑分片名称
-                    }
-                    else
-                    {
-                        EditingPartName = string.Format(AppResources.NPartsSelected, SelectedParts.Count); // 多个分片被选中时显示数量
-                    }
+                    EditingPartName = string.Format(AppResources.NPartsSelected, SelectedParts.Count); // 多个分片被选中时显示数量
                 }
-            };
-            // 订阅选中音符列表变化 更新编辑音符
-            SelectedNotes.CollectionChanged += (sender, e) => // 这个订阅有bug或者是我的问题，有时候失效，后面再看吧。先加个手动触发的函数
-            {
-                HandleSelectedNotesChanged();
-            };
+            }
+        }
+
+        private void OnSelectedNotesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            HandleSelectedNotesChanged();
+        }
+
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+            GC.SuppressFinalize(this);
+            PhonemizingParts.CollectionChanged -= OnPhonemizingPartsChanged;
+            SelectedParts.CollectionChanged -= OnSelectedPartsChanged;
+            SelectedNotes.CollectionChanged -= OnSelectedNotesChanged;
+            _disposables.Dispose();
         }
 
         public void ValidateSelectedParts()

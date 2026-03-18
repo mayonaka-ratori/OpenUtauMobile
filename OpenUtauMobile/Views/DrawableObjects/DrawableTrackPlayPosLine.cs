@@ -1,4 +1,4 @@
-﻿using OpenUtauMobile.Views.Utils;
+using OpenUtauMobile.Views.Utils;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
@@ -14,6 +14,13 @@ namespace OpenUtauMobile.Views.DrawableObjects
         public int PlayPosTick { get; set; }
         public double TotalHeight { get; set; } = 0d;
         public double ResolutionX { get; set; } = 480d;
+
+        private static readonly SKPaint _playPosPaint = new()
+        {
+            StrokeWidth = 3f,
+            Color = SKColor.Parse("#B3F353"),
+        };
+
         public DrawableTrackPlayPosLine(SKCanvas canvas, int playPosTick, double totalHeight, double resolutionX = 480)
         {
             Canvas = canvas;
@@ -30,14 +37,8 @@ namespace OpenUtauMobile.Views.DrawableObjects
             // 计算位置
             float x = (float)(PlayPosTick * originalMatrix.ScaleX + originalMatrix.TransX);
             float y = 0f;
-            // 创建画笔
-            using (SKPaint paint = new SKPaint())
-            {
-                paint.StrokeWidth = 3f; // 设置线条宽度
-                paint.Color = SKColor.Parse("#B3F353"); // 设置线条颜色为绿色
-                // 绘制线条
-                Canvas.DrawLine(x, y, x, (float)TotalHeight, paint);
-            }
+            // 绘制线条
+            Canvas.DrawLine(x, y, x, (float)TotalHeight, _playPosPaint);
             // 恢复原始矩阵
             Canvas.SetMatrix(originalMatrix);
         }

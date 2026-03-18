@@ -44,7 +44,7 @@ public partial class SplashScreenPage : ContentPage, ICmdSubscriber
                     LabelInitDetail.Text = AppResources.InitializingObjectProvider;
                 });
                 // throw new Exception("测试异常");
-                ObjectProvider.Initialize(); // 初始化对象提供器
+                await ObjectProvider.InitializeAsync().ConfigureAwait(false); // 初始化对象提供器 (C-03)
                 Log.Information("对象提供器初始化完成");
 
                 await MainThread.InvokeOnMainThreadAsync(() =>
@@ -124,6 +124,12 @@ public partial class SplashScreenPage : ContentPage, ICmdSubscriber
             });
             Log.Information("==========OpenUtau后端初始化完成==========");
         });
+    }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        DocManager.Inst.RemoveSubscriber(this);
     }
 
     public async void CheckPermission()

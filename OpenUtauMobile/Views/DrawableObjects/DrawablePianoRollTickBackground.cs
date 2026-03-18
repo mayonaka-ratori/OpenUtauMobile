@@ -1,4 +1,4 @@
-﻿using DynamicData.Binding;
+using DynamicData.Binding;
 using OpenUtau.Core.Ustx;
 using OpenUtauMobile.Utils;
 using OpenUtauMobile.ViewModels;
@@ -12,26 +12,35 @@ using System.Threading.Tasks;
 
 namespace OpenUtauMobile.Views.DrawableObjects
 {
-    public class DrawablePianoRollTickBackground
+    public class DrawablePianoRollTickBackground : IDisposable
     {
         public SKCanvas Canvas { get; set; } = null!;
-        //public double HeightPerPianoKey { get; set; }
-        //public Transformer Transformer { get; set; } = null!;
-        //public int SnapDiv { get; set; } = 4; // 网格吸附密度 1/x
         public EditViewModel ViewModel { get; set; } = null!;
-        //public ObservableCollectionExtended<int>? SnapTicks { get; set; } = [];
+
+        // Bar number text paint (theme color)
+        private readonly SKPaint _barTextPaint = new()
+        {
+            Color = ThemeColorsManager.Current.BarNumber
+        };
+        // Bar number font — Size fixed 30f, Typeface set in Draw()
+        private readonly SKFont _barFont = new() { Size = 30f };
+        // Shadow fill (theme color)
+        private readonly SKPaint _shadowPaint = new()
+        {
+            Color = ThemeColorsManager.Current.PianoRollShadow,
+            Style = SKPaintStyle.Fill
+        };
 
         public DrawablePianoRollTickBackground(SKCanvas canvas, EditViewModel viewModel)
         {
             Canvas = canvas;
-            //HeightPerPianoKey = heightPerPianoKey;
-            //Transformer = transformer;
-            //SnapDiv = snapDiv;
             ViewModel = viewModel;
         }
 
         public void Draw()
         {
+            _barFont.Typeface = ObjectProvider.NotoSansCJKscRegularTypeface;
+
             var project = OpenUtau.Core.DocManager.Inst.Project;
             int snapUnit = project.resolution * 4 / ViewModel.PianoRollSnapDiv;
             while (snapUnit < ViewConstants.MinTicklineWidth)
@@ -56,16 +65,6 @@ namespace OpenUtauMobile.Views.DrawableObjects
             }
 
             int barTick = project.timeAxis.BarBeatToTickPos(bar, 0);
-            #region 画笔
-            // 小节文本画笔
-            SKPaint barTextPaint = new()
-            {
-                Color = ThemeColorsManager.Current.BarNumber
-            };
-            SKTypeface typeface = ObjectProvider.NotoSansCJKscRegularTypeface;
-            SKFont font = new(typeface, size: 30f);
-
-            #endregion
 
             // 保存当前的变换矩阵
             SKMatrix originalMatrix = Canvas.TotalMatrix;
@@ -73,13 +72,11 @@ namespace OpenUtauMobile.Views.DrawableObjects
             Canvas.ResetMatrix();
             while (barTick <= rightTick)
             {
-                //SnapTicks?.Add(barTick);
-
                 // 小节线和数字
                 float x = (float)Math.Round((double)barTick) + 0.5f;
                 float y = 20 * (float)ViewModel.Density;
 
-                Canvas.DrawText((bar + 1).ToString(), (x + 10) * originalMatrix.ScaleX + originalMatrix.TransX, 30, font, barTextPaint);
+                Canvas.DrawText((bar + 1).ToString(), (x + 10) * originalMatrix.ScaleX + originalMatrix.TransX, 30, _barFont, _barTextPaint);
                 Canvas.DrawLine(new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, y), new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, bottom + 0.5f), ThemeColorsManager.Current.PianoRollBarlinePaint);
                 Canvas.DrawLine(new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, 0), new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, y), ThemeColorsManager.Current.PianoRollBarlineHeadPaint);
 
@@ -108,7 +105,6 @@ namespace OpenUtauMobile.Views.DrawableObjects
                 {
                     for (int tick = barTick + ticksPerLine; tick < nextBarTick; tick += ticksPerLine)
                     {
-                        //SnapTicks?.Add(tick);
                         project.timeAxis.TickPosToBarBeat(tick, out int snapBar, out int snapBeat, out int snapRemainingTicks);
                         x = (float)(tick + 0.5);
                         y = 20 * (float)ViewModel.Density;
@@ -128,18 +124,11 @@ namespace OpenUtauMobile.Views.DrawableObjects
                 barTick = nextBarTick;
                 bar++;
             }
-            //SnapTicks?.Add(barTick);
 
-            SKPaint shadowPaint = new()
-            {
-                Color = ThemeColorsManager.Current.PianoRollShadow,
-                Style = SKPaintStyle.Fill
-            };
-
-            // 绘制全部阴影（如果没有编辑的分片）
+            // 绘制阴影
             if (ViewModel.EditingPart == null)
             {
-                Canvas.DrawRect(0, 0, canvasWidth, bottom + 0.5f, shadowPaint);
+                Canvas.DrawRect(0, 0, canvasWidth, bottom + 0.5f, _shadowPaint);
             }
             else
             {
@@ -147,12 +136,12 @@ namespace OpenUtauMobile.Views.DrawableObjects
                 if (ViewModel.EditingPart.position > rightTick)
                 {
                     // 整个编辑分片在右侧
-                    Canvas.DrawRect(0, 0, canvasWidth, bottom + 0.5f, shadowPaint);
+                    Canvas.DrawRect(0, 0, canvasWidth, bottom + 0.5f, _shadowPaint);
                 }
                 else if (ViewModel.EditingPart.End <= leftTick)
                 {
                     // 整个编辑分片在左侧
-                    Canvas.DrawRect(0, 0, canvasWidth, bottom + 0.5f, shadowPaint);
+                    Canvas.DrawRect(0, 0, canvasWidth, bottom + 0.5f, _shadowPaint);
                 }
                 else
                 {
@@ -160,13 +149,13 @@ namespace OpenUtauMobile.Views.DrawableObjects
                     {
                         // 露出左侧部分
                         float partStartX = (float)ViewModel.EditingPart.position * (float)originalMatrix.ScaleX + originalMatrix.TransX;
-                        Canvas.DrawRect(0, 0, partStartX, bottom + 0.5f, shadowPaint);
+                        Canvas.DrawRect(0, 0, partStartX, bottom + 0.5f, _shadowPaint);
                     }
                     if (ViewModel.EditingPart.End < rightTick)
                     {
                         // 露出右侧部分
                         float partEndX = (float)ViewModel.EditingPart.End * (float)originalMatrix.ScaleX + originalMatrix.TransX;
-                        Canvas.DrawRect(partEndX, 0, canvasWidth, bottom + 0.5f, shadowPaint);
+                        Canvas.DrawRect(partEndX, 0, canvasWidth, bottom + 0.5f, _shadowPaint);
                     }
                 }
             }
@@ -177,6 +166,14 @@ namespace OpenUtauMobile.Views.DrawableObjects
 
             // 恢复原始矩阵
             Canvas.SetMatrix(originalMatrix);
+        }
+
+        public void Dispose()
+        {
+            GC.SuppressFinalize(this);
+            _barTextPaint.Dispose();
+            _barFont.Dispose();
+            _shadowPaint.Dispose();
         }
     }
 }
