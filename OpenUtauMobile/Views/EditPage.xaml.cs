@@ -125,6 +125,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
     };
     // 共用テキストフォント 12pt（Size・Typeface は PaintSurface 内で設定）
     private readonly SKFont _textFont12 = new();
+    // PaintSurface 内でリセット再利用する SKPath キャッシュ（EP-01）
+    private readonly SKPath _phonemeEnvelopePath = new();
+    private readonly SKPath _pitchLinePath = new();
     #endregion
 
     #region Drawable インスタンスキャッシュ（D-07: PaintSurface 内での毎フレーム new を排除）
@@ -2237,7 +2240,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             int pitchStartTick = phrase.position - phrase.leading;
             int startIdx = Math.Max(0, (leftTick - pitchStartTick) / interval);
             int endIdx = Math.Min(phrase.pitches.Length, (rightTick - pitchStartTick) / interval + 1);
-            using SKPath path = new();
+            _pitchLinePath.Reset();
             // 计算i步进
             int step = Math.Max(1, (int)(pitchDisplayPrecision / _viewModel.PianoRollTransformer.ZoomX));
             bool isFirstPoint = true;
@@ -2248,15 +2251,15 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                 SKPoint point = _viewModel.PianoRollTransformer.LogicalToActual(_viewModel.PitchAndTickToPoint(t, p));
                 if (isFirstPoint)
                 {
-                    path.MoveTo(point);
+                    _pitchLinePath.MoveTo(point);
                     isFirstPoint = false;
                 }
                 else
                 {
-                    path.LineTo(point);
+                    _pitchLinePath.LineTo(point);
                 }
             }
-            canvas.DrawPath(path, _pitchLinePaint);
+            canvas.DrawPath(_pitchLinePath, _pitchLinePaint);
         }
         // 绘制触摸中心
         if (IsUserDrawingCurve)
@@ -2289,7 +2292,6 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 
     public void Dispose()
     {
-        GC.SuppressFinalize(this); // 防止终结器调用
         if (_disposed) return;
         _disposed = true;
         Debug.WriteLine("\n\n==============EditPage Dispose===============\n\n");
@@ -2327,6 +2329,18 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         DocManager.Inst.RemoveSubscriber(this);
         PlaybackManager.Inst.StopPlayback();
         DeviceDisplay.Current.KeepScreenOn = false; // 解除屏幕常亮
+        // ページ所有の SKPaint / SKFont / SKPath ネイティブリソースを解放 (EP-05)
+        _pitchLinePaint?.Dispose();
+        _pianoKeysPaint?.Dispose();
+        _pianoKeyTextPaint?.Dispose();
+        _pianoKeyFont?.Dispose();
+        _pianoRollBlackKeyBgPaint?.Dispose();
+        _phonemeOutlinePaint?.Dispose();
+        _phonemePosLinePaint?.Dispose();
+        _textFont12?.Dispose();
+        _phonemeEnvelopePath?.Dispose();
+        _pitchLinePath?.Dispose();
+        GC.SuppressFinalize(this); // 防止终结器调用 (EP-03: 全クリーンアップ後に移動)
     }
 
     private void ButtonPianoRollSnapToGrid_Clicked(object sender, EventArgs e)
@@ -2611,18 +2625,18 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                 //SKPoint point2 = new(x2, y + y2);
                 SKPoint point3 = new(x3, y + y3);
                 SKPoint point4 = new(x4, y + y4);
-                SKPath path = new();
-                path.MoveTo(point0);
-                path.LineTo(point1);
-                //path.LineTo(point2);
-                path.LineTo(point3);
-                path.LineTo(point4);
-                path.Close();
+                _phonemeEnvelopePath.Reset();
+                _phonemeEnvelopePath.MoveTo(point0);
+                _phonemeEnvelopePath.LineTo(point1);
+                //_phonemeEnvelopePath.LineTo(point2);
+                _phonemeEnvelopePath.LineTo(point3);
+                _phonemeEnvelopePath.LineTo(point4);
+                _phonemeEnvelopePath.Close();
                 //Debug.WriteLine($"Phoneme {phoneme.phoneme} envelope points: \n0:{point0}, \n1:{point1}, \n2:{point2}, \n3:{point3}, \n4:{point4}");
                 //var polyline = new PolylineGeometry(new Point[] { point0, point1, point2, point3, point4 }, true);
                 // 音素多边形
                 //Debug.WriteLine($"Phoneme {phoneme.phoneme} from {x0} to {x4}");
-                canvas.DrawPath(path, _phonemeOutlinePaint);
+                canvas.DrawPath(_phonemeEnvelopePath, _phonemeOutlinePaint);
                 //    // preutter控制点
                 //    brush = phoneme.preutterDelta.HasValue ? pen!.Brush : ThemeManager.BackgroundBrush;
                 //    using (var state = context.PushTransform(Matrix.CreateTranslation(x0, y + y0 - 1)))
@@ -3013,7 +3027,6 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                     }
                     DocManager.Inst.StartUndoGroup();
                     DocManager.Inst.ExecuteCmd(new TrackChangePhonemizerCommand(DocManager.Inst.Project, track, phonemizer));
-                    DocManager.Inst.EndUndoGroup();
                 }
                 catch (Exception ex)
                 {

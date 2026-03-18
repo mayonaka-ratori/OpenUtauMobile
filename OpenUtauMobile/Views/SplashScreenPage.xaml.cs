@@ -115,6 +115,7 @@ public partial class SplashScreenPage : ContentPage, ICmdSubscriber
                     {
                         Log.Information("退出应用");
                         Application.Current?.Quit();
+                        return; // 致命的エラー後に HomePage へナビゲートしないよう防止 (SS-01)
                     }
                 }
             }
