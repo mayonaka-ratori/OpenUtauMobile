@@ -78,13 +78,13 @@ Cold Review 修正 (PRブロッカー)
 - [x] **[CR2-5]** EP-03: GC.SuppressFinalize 位置修正 — 完了 2026-03-18
 
 #### Cold Review #2 推奨修正
-- [ ] EP-04: テーマ変更時の SKPaint 色陳腐化をコメント文書化
-- [ ] EP-06: SKColorMauiColorConverter 静的キャッシュ化
-- [ ] EP-07: InitExpressionMagnifier 変数名不一致修正
-- [ ] GP-01: HandleTouchDown try-catch → upsert パターン
-- [ ] ATO-01: _disposed volatile 化
-- [ ] ATO-02: PlaybackLoop _audioTrack ローカルコピー
-- [ ] ATO-03: Stop() _disposed ガード追加
+- [x] EP-04: テーマ変更時の SKPaint 色陳腐化をコメント文書化 — 完了 2026-03-18
+- [x] EP-06: SKColorMauiColorConverter 静的キャッシュ化 — 完了 2026-03-18
+- [x] EP-07: InitExpressionMagnifier 変数名不一致修正 — 完了 2026-03-18
+- [x] GP-01: HandleTouchDown try-catch → upsert パターン — 完了 2026-03-18
+- [x] ATO-01: _disposed volatile 化 — 完了 2026-03-18
+- [x] ATO-02: PlaybackLoop _audioTrack ローカルコピー — 完了 2026-03-18
+- [x] ATO-03: Stop() _disposed ガード追加 — 完了 2026-03-18
 - [ ] OP-01: RequestStoragePermissionAsync 常に true → Phase 3 送り
 
 ### Phase 2 — Touch Performance (Priority: HIGH)
