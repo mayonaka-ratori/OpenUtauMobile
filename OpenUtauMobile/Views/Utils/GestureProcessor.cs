@@ -223,7 +223,7 @@ public class GestureProcessor : IDisposable
                 FinalizeGesture();
                 break;
 
-            case 1 when _currentState == GestureState.XZoom || _currentState == GestureState.YZoom:
+            case 1 when _currentState == GestureState.Zoom || _currentState == GestureState.XZoom || _currentState == GestureState.YZoom:
                 SwitchToPanFromZoom();
                 break;
         }
@@ -366,6 +366,8 @@ public class GestureProcessor : IDisposable
         {
             case GestureState.Pan:
                 _transformer.EndPan();
+                break;
+            case GestureState.Zoom:
                 break;
             case GestureState.XZoom:
                 // _transformer.EndZoom();

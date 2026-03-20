@@ -194,6 +194,15 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                 // 添加加载项目work
                 _viewModel.SetWork(WorkType.LoadingProject, path, detail: path);
                 await _viewModel.Init();
+                // P2-B1: Auto-select first VoicePart after project load to enable note rendering
+                var firstVoicePart = DocManager.Inst.Project?.parts?.OfType<UVoicePart>().FirstOrDefault();
+                if (firstVoicePart != null && _viewModel.SelectedParts.Count == 0)
+                {
+                    _viewModel.SelectedParts.Add(firstVoicePart);
+                    // Explicitly set EditingPart as safety net (do not rely solely on CollectionChanged chain)
+                    _viewModel.EditingPart = firstVoicePart;
+                    PianoRollCanvas.InvalidateSurface();
+                }
                 // 移除加载项目work
                 _viewModel.RemoveWork(path);
                 InitMagnifier();

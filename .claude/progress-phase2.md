@@ -75,6 +75,22 @@
 - 結果: 39ms → **6ms** (0% slow) ✅
 - コミット: `eeb5df0`
 
+### P2-B1: ノート未描画問題修正 (2026-03-20)
+
+**P2-B1a — Auto-select first VoicePart on project load**
+- `EditPage.xaml.cs` Loaded イベントハンドラ内、`await _viewModel.Init()` 直後に挿入
+- `DocManager.Inst.Project?.parts?.OfType<UVoicePart>().FirstOrDefault()` で最初の VoicePart を取得
+- `SelectedParts.Count == 0` チェック後に `SelectedParts.Add()` + `EditingPart` 明示セット + `PianoRollCanvas.InvalidateSurface()`
+- 効果: PianoRollCanvas / PhonemeCanvas / PianoRollPitchCanvas / ExpressionCanvas が EditPage 起動直後から描画開始
+
+**P2-B1b — GestureState.Zoom 欠落修正**
+- `GestureProcessor.cs` HandleTouchUp の `case 1 when` 条件に `GestureState.Zoom` を追加 (L226)
+- HandleTouchCancel (L89) との対称性を回復
+- `FinalizeGesture()` に `case GestureState.Zoom: break;` を追加 (L370)
+- 効果: 2軸ズーム中に片指を離した後、残指でパン操作が可能になりグレー画面固着を解消
+
+- コミット: `(本コミット)`
+
 ### P2-5c: PianoRollTickBackgroundCanvas キャッシュ + SKImage最適化 (2026-03-19)
 - 水平方向 3x 幅 SKBitmap キャッシュ + シャドウ毎フレーム動的描画 (Approach A)
 - 3 Canvas 全てで SKImage.FromBitmap + DrawImage srcRect に置換
@@ -95,6 +111,16 @@
 | 2026-03-18 | ベースライン | max=51.04ms<br/>slow=33.3% | max=33.42ms<br/>slow=6.9% | max=28.90ms<br/>slow=4.1% | max=9.17ms<br/>slow=0.3% | max=1.6ms<br/>slow=0% |
 | 2026-03-18 | P2-5a+5b後 | max=25ms<br/>frame count 21→6 | max=40ms<br/>slow=11% | **max=6ms**<br/>**slow=0%** ✅ | max=25ms<br/>slow=0.5% | max=1.8ms<br/>slow=0% |
 | 2026-03-19 | P2-5c SKImage+srcRect | max=22ms (2fr only) ✅ | **max=33ms**<br/>**slow=8.9%** | **max=4ms**<br/>**slow=0%** ✅ | **max=7ms**<br/>**slow=0%** ✅ | — |
+| 2026-03-20 | P2-B1 ノート描画修正後 | — | — | max=10.34ms<br/>(zoom heavy) | — | — |
+
+**P2-B1 新規出現 Canvas (2026-03-20):**
+
+| Canvas | 状態 | max (ms) | slow (%) | 備考 |
+|--------|------|---------|---------|------|
+| PianoRollCanvas | 🆕 NEW | 31.85ms | 1.8% | 修正前は未描画（SelectedParts 空ガードでスキップ） |
+| PhonemeCanvas | 🆕 NEW | 3.17ms | 0% | ✅ 目標達成 |
+| PianoRollPitchCanvas | 🆕 NEW | 0.79ms | 0% | ✅ 目標達成 |
+| PianoKeysCanvas | 🔶 軽微regression | 4.12ms→10.34ms | — | ズーム高負荷時のみ、許容範囲 |
 
 **注記:**
 - PlaybackTickBg: キャッシュ HIT 時のみフレーム数計測、MISS は ~22ms (2フレームのみ) ✅
@@ -135,6 +161,8 @@
 | 2026-03-19 | Cache margin 0.5 tested — MISS 頻度増加 (4→9回) で revert | 0.5f は MISS 頻度が約 2× 増加し slow rate 8.9%→14.6% に悪化。1.0f (3x 幅) が最適と判定 |
 | 2026-03-19 | SKImage.FromBitmap + DrawImage srcRect で DrawBitmap コスト削減 (P2-5c) | bitmap 描画コスト 10-25ms → 1.7-6.7ms に削減。GPU テクスチャキャッシュ活用 + 可視領域のみ転送 |
 | 2026-03-19 | PianoRollTickBg slow 8.9% は許容範囲と判断 | HIT フレームは全て <8ms。slow 8.9% は MISS フレームのみ（キャッシュ再生成 ~33ms）。実用上問題なし |
+| 2026-03-20 | SetPanLimit() re-clamp confirmed sufficient; no additional pan correction needed after zoom | Transformer.SetPanLimit() は内部で `PanX = InvalidatePanX(PanX)` を即時実行。UpdatePianoRollCanvasPanLimit() 呼び出しで再クランプ完結。EditPage 側への追加コード不要 |
+| 2026-03-20 | GestureState.Zoom omission in HandleTouchUp was root cause of gray screen freeze | HandleTouchUp の case 1 条件に Zoom が含まれていなかったため、2軸ズーム中に片指を離しても SwitchToPanFromZoom() が呼ばれず残指パン不能。HandleTouchCancel との不整合が原因 |
 
 ---
 
@@ -154,7 +182,9 @@
 
 ### Stage B — ノート描画修正 + 全Canvas再計測
 
-- [ ] **P2-B1** ノート未描画問題の調査・修正 (SelectedParts ガード)
+- [x] **P2-B1** ノート未描画問題の調査・修正 (SelectedParts ガード) — 完了 2026-03-20
+  - [x] **P2-B1a** Auto-select first VoicePart on project load (EditPage.xaml.cs)
+  - [x] **P2-B1b** Fix GestureProcessor.Zoom state missing in HandleTouchUp and FinalizeGesture (GestureProcessor.cs)
 - [ ] **P2-B2** ノート表示状態での全Canvas再計測（ExpressionCanvas, PhonemeCanvas, PianoRollPitchCanvas を含む）
 - [ ] **P2-B3** 再計測結果に基づく追加最適化の優先度決定
 
