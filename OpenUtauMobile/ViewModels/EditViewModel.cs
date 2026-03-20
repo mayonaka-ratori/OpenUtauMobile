@@ -1197,6 +1197,25 @@ namespace OpenUtauMobile.ViewModels
         }
 
         /// <summary>
+        /// 進行中のノート操作を強制終了する安全網メソッド。
+        /// ジェスチャー状態が壊れた可能性がある場合（BUG-C、OnAppearing 等）に呼ぶ。
+        /// 冪等: 複数回呼んでも安全。
+        /// </summary>
+        public void ForceEndAllInteractions()
+        {
+            if (IsMovingNotes)
+            {
+                IsMovingNotes = false;
+                DocManager.Inst.EndUndoGroup();
+            }
+            if (IsResizingNote)
+            {
+                IsResizingNote = false;
+                DocManager.Inst.EndUndoGroup();
+            }
+        }
+
+        /// <summary>
         /// 尝试采样指定位置的已有音高（单位：cent）
         /// </summary>
         /// <param name="point">逻辑坐标</param>

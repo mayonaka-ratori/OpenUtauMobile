@@ -2632,6 +2632,14 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         base.OnAppearing();
         PlaybackTimer?.Start();   // Always restart — Tick handler checks Playing internally
         AutoSaveTimer?.Start();
+        // BUG-C: Android システムジェスチャーが Released を消費した場合、
+        // _activePoints にゴミが残ってパン不能になる。アプリ復帰時に全プロセッサをリセット。
+        _pianoRollGestureProcessor.ForceReset();
+        _trackGestureProcessor.ForceReset();
+        _timeLineGestureProcessor.ForceReset();
+        _phonemeGestureProcessor.ForceReset();
+        _expressionGestureProcessor.ForceReset();
+        _viewModel.ForceEndAllInteractions();
     }
 
     private int ComputeTempoTimeSignatureHash()

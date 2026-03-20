@@ -98,6 +98,16 @@ public class GestureProcessor : IDisposable
     /// <param name="e"></param>
     private void HandleTouchDown(SKTouchEventArgs e)
     {
+        // ステールポイントのクリーンアップ:
+        // 前回ジェスチャーの Released がシステムジェスチャーに消費されて
+        // _activePoints にゴミが残っている場合（BUG-C）、None 状態で
+        // 新しい TouchDown を受け取ったらリセットする。
+        if (_activePoints.Count > 0 && _currentState == GestureState.None)
+        {
+            _activePoints.Clear();
+            _hasPanStarted = false;
+        }
+
         // 维护触摸点队列
         if (_activePoints.Count >= 2)
         {
@@ -337,6 +347,25 @@ public class GestureProcessor : IDisposable
     private void CancelCurrentGesture()
     {
         _currentState = GestureState.None;
+    }
+
+    /// <summary>
+    /// ジェスチャー状態を強制リセットする。
+    /// Android システムジェスチャーに Released/Cancelled が消費されて
+    /// _activePoints にゴミエントリが残った場合（BUG-C）に呼ぶ。
+    /// OnAppearing やアプリ復帰時に全プロセッサへ呼び出すこと。
+    /// </summary>
+    public void ForceReset()
+    {
+        if (_currentState == GestureState.Pan)
+        {
+            PanEnd?.Invoke(this, new PanEndEventArgs(SKPoint.Empty));
+        }
+        _activePoints.Clear();
+        _hasPanStarted = false;
+        _currentState = GestureState.None;
+        _lastTapTime = DateTime.MinValue;
+        _lastTapPosition = null;
     }
 
     /// <summary>

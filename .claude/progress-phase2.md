@@ -198,6 +198,8 @@
 | 2026-03-20 | GestureState.Zoom omission in HandleTouchUp was root cause of gray screen freeze | HandleTouchUp の case 1 条件に Zoom が含まれていなかったため、2軸ズーム中に片指を離しても SwitchToPanFromZoom() が呼ばれず残指パン不能。HandleTouchCancel との不整合が原因 |
 | 2026-03-20 | BUG-A/B/C は Phase 2 リグレッションではなく upstream 既存バグと判定 | P2-B2 の DrawableNotes 変更でタッチ経路は無改変。IsPointInHandle の ZoomY 乗算バグと PanStart ドリフト問題はともに変更前から存在 |
 | 2026-03-20 | PanStartEventArgs を後方互換拡張（OriginalTouchDown 追加） | 既存の 1引数コンストラクタを残しつつ 2引数版を追加。SwitchToPanFromZoom 等の既存呼び出しはフォールバックで OriginalTouchDown = StartPosition となり無変更でコンパイル通過 |
+| 2026-03-20 | GestureProcessor.ForceReset() を安全網として追加 (BUG-C) | Android システムジェスチャーが Released/Cancelled を消費した場合、_activePoints にゴミエントリが残りパン不能になる。OnAppearing で全プロセッサを ForceReset() することで復帰を保証 |
+| 2026-03-20 | HandleTouchDown にステールポイントクリーンアップを追加 (BUG-C) | GestureState.None かつ _activePoints に残存エントリがある場合、新しい TouchDown を受け取った時点でクリア。システムジェスチャー割り込み後の「ゴーストタッチ状態」を即座に解消 |
 
 ---
 
@@ -225,10 +227,13 @@
   - [x] BN-2: DrawRectangle + DrawLyrics を単一パス DrawNotesAndLyrics に統合
   - [x] BN-3: Transformer プロパティをローカルキャッシュ化（ノートごとのプロパティチェーン排除）
   - 結果: PianoRollCanvas max 31.85ms → 20.29ms、slow 1.8% → 0.5%
-- [x] **P2-B3** タッチ操作バグ修正 — 🔄 IN PROGRESS 2026-03-20
-  - [x] **BUG-B**: `IsPointInHandle` Y軸が `* ZoomY` → `/ ZoomY` 修正（DrawableNotes.cs:331-332）— 実機テスト待ち
-  - [x] **BUG-A**: `PanStartEventArgs` に `OriginalTouchDown` 追加、GestureProcessor + EditPage PianoRoll ハンドラ修正 — 実機テスト待ち
-  - [ ] **BUG-C**: パン操作無応答（調査完了、修正保留）
+- [x] **P2-B3** タッチ操作バグ修正 — 実装完了 2026-03-20、実機テスト待ち
+  - [x] **BUG-B**: `IsPointInHandle` Y軸が `* ZoomY` → `/ ZoomY` 修正（DrawableNotes.cs:331-332）
+  - [x] **BUG-A**: `PanStartEventArgs` に `OriginalTouchDown` 追加、GestureProcessor + EditPage PianoRoll ハンドラ修正
+  - [x] **BUG-C**: `GestureProcessor.ForceReset()` 追加 + `HandleTouchDown` ステールポイントクリーンアップ + `EditViewModel.ForceEndAllInteractions()` 追加 + `OnAppearing` で全プロセッサリセット
+- [x] **P2-UI1** ExitPopup「キャンセル」ボタン文字切れ修正 — 完了 2026-03-20
+  - `ButtonCancel` の `WidthRequest="80"` → `WidthRequest="100"` に拡大（ExitPopup.xaml:30）
+  - 根本原因: 固定幅 80dp に「キャンセル」(5文字) が収まらず末尾切断。他 Cancel リソース利用箇所への影響なし
 
 ### Stage C — リファクタ・クリーンアップ
 
