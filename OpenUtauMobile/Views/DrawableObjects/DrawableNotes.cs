@@ -5,6 +5,7 @@ using OpenUtauMobile.ViewModels;
 using OpenUtauMobile.Views.Utils;
 using SkiaSharp;
 using System;
+using System.Collections.Generic;
 namespace OpenUtauMobile.Views.DrawableObjects
 {
     public class DrawableNotes : IDisposable
@@ -63,6 +64,8 @@ namespace OpenUtauMobile.Views.DrawableObjects
         };
         // Lyric font: Size and Typeface set before each draw loop
         private readonly SKFont _lyricsFont = new();
+        // BN-1: HashSet for O(1) selected-note lookup (avoids O(n²) from List.Contains per note)
+        private readonly HashSet<UNote> _selectedNotesSet = new HashSet<UNote>();
         private bool _disposed = false;
 
         public DrawableNotes(SKCanvas canvas, UVoicePart part, EditViewModel viewModel, SKColor notesColor)
@@ -81,10 +84,112 @@ namespace OpenUtauMobile.Views.DrawableObjects
             LeftTick = (int)(-ViewModel.PianoRollTransformer.PanX / ViewModel.PianoRollTransformer.ZoomX);
             RightTick = (int)(Canvas.DeviceClipBounds.Width / ViewModel.PianoRollTransformer.ZoomX + LeftTick);
 
-            DrawRectangle();
-            DrawLyrics();
+            // BN-1: Rebuild HashSet from SelectedNotes for O(1) lookup inside draw loop
+            _selectedNotesSet.Clear();
+            if (ViewModel.SelectedNotes.Count > 0)
+            {
+                foreach (var n in ViewModel.SelectedNotes)
+                    _selectedNotesSet.Add(n);
+            }
+
+            DrawNotesAndLyrics();
         }
 
+        /// <summary>
+        /// BN-2: Single-pass draw — merges DrawRectangle() + DrawLyrics() into one loop.
+        /// BN-3: Transformer properties cached as locals to avoid repeated property access per note.
+        /// Drawing order: selection border → fill rect → lyric text (per note), handles on top.
+        /// </summary>
+        public void DrawNotesAndLyrics()
+        {
+            // BN-3: Cache Transformer properties as locals (6 property accesses → 1 per value)
+            float zoomX = ViewModel.PianoRollTransformer.ZoomX;
+            float zoomY = ViewModel.PianoRollTransformer.ZoomY;
+            float panX = ViewModel.PianoRollTransformer.PanX;
+            float panY = ViewModel.PianoRollTransformer.PanY;
+            float density = (float)ViewModel.Density;
+
+            // Paint / font setup — once before loop (was per-frame in DrawLyrics header)
+            _notesFillPaint.Color = NotesColor;
+            _lyricPaint.Color = ThemeColorsManager.Current.LyricsText;
+            _lyricsFont.Size = 15 * density;
+            // Font optimization: only assign Typeface when it actually changed
+            var typeface = ObjectProvider.NotoSansCJKscRegularTypeface;
+            if (_lyricsFont.Typeface != typeface)
+                _lyricsFont.Typeface = typeface;
+
+            // Single pass over Part.notes (SortedSet ordered by position)
+            foreach (UNote note in Part.notes)
+            {
+                // 计算音符的绝对位置
+                int noteStart = (int)(PositionX + note.position);
+                int noteEnd = noteStart + note.duration;
+
+                // 跳过左侧不可见的音符
+                if (noteEnd < LeftTick)
+                    continue;
+
+                // 跳过右侧不可见的音符 notes按position排序
+                if (noteStart > RightTick)
+                    break;
+
+                float x = (PositionX + note.position) * zoomX + panX;
+                float y = (ViewConstants.TotalPianoKeys - note.tone - 1) * HeightPerPianoKey * zoomY + panY;
+                float w = note.duration * zoomX;
+                float h = HeightPerPianoKey * zoomY;
+
+                // a. 选择边框 (BN-1: _selectedNotesSet.Contains — O(1))
+                if (_selectedNotesSet.Contains(note))
+                {
+                    Canvas.DrawRect(x, y, w, h, _selectedNotePaint);
+                }
+
+                // b. 填充矩形
+                _notesFillPaint.Color = note.Error ? NotesColor.WithAlpha(100) : NotesColor;
+                Canvas.DrawRect(x, y, w, h, _notesFillPaint);
+
+                // c. 歌词文本
+                if (!string.IsNullOrEmpty(note.lyric))
+                {
+                    float lx = noteStart * zoomX + panX;
+                    float ly = (ViewConstants.TotalPianoKeys - note.tone - 1.5f) * HeightPerPianoKey * zoomY + panY;
+                    Canvas.DrawText(note.lyric, lx, ly, _lyricsFont, _lyricPaint);
+                }
+            }
+
+            // 绘制可拖拽手柄 — drawn on top after all notes
+            if (ViewModel.SelectedNotes.Count > 0 && ViewModel.CurrentNoteEditMode == EditViewModel.NoteEditMode.EditNote)
+            {
+                float halfHandleSize = (float)(DefaultTouchTargetSize * density);
+                float handleSize = halfHandleSize * 2;
+                foreach (UNote note in ViewModel.SelectedNotes)
+                {
+                    float left = (PositionX + note.position + note.duration) * zoomX + panX + Spacing;
+                    float right = left + handleSize;
+                    float top = (ViewConstants.TotalPianoKeys - note.tone - 0.5f) * HeightPerPianoKey * zoomY - halfHandleSize + panY;
+                    float centerY = top + halfHandleSize;
+                    float centerX = left + halfHandleSize;
+                    float bottom = top + handleSize;
+                    // 右侧手柄
+                    Canvas.DrawRoundRect(left, top, handleSize, handleSize, 4, 4, _handlePaint);
+                    // 里面画两个小三角形，表示可拖拽
+                    _trianglePath.Reset();
+                    _trianglePath.MoveTo(left + 4, centerY);
+                    _trianglePath.LineTo(centerX - 2, bottom - 6);
+                    _trianglePath.LineTo(centerX - 2, top + 6);
+                    _trianglePath.Close();
+                    Canvas.DrawPath(_trianglePath, _trianglePaint);
+                    _trianglePath.Reset();
+                    _trianglePath.MoveTo(right - 4, centerY);
+                    _trianglePath.LineTo(centerX + 2, bottom - 6);
+                    _trianglePath.LineTo(centerX + 2, top + 6);
+                    _trianglePath.Close();
+                    Canvas.DrawPath(_trianglePath, _trianglePaint);
+                }
+            }
+        }
+
+        [Obsolete("Use DrawNotesAndLyrics() instead — merged for performance (P2-B2 BN-2)")]
         public void DrawRectangle()
         {
             _notesFillPaint.Color = NotesColor;
@@ -153,6 +258,7 @@ namespace OpenUtauMobile.Views.DrawableObjects
             }
         }
 
+        [Obsolete("Use DrawNotesAndLyrics() instead — merged for performance (P2-B2 BN-2)")]
         public void DrawLyrics()
         {
             _lyricPaint.Color = ThemeColorsManager.Current.LyricsText;
