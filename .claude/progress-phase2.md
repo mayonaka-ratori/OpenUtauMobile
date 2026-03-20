@@ -242,3 +242,28 @@
 - [ ] **P2-8c** DrawablePianoKeys デッドコード削除 (CR3-02)
 - [ ] **P2-8d** IDrawableObject に Draw() 追加 (IFO-01)
 - [ ] **P2-8e** ObservableCollectionExtended.Contains O(n) 改善 (CR4-06)
+
+---
+
+## Investigation Backlog (2026-03-20)
+
+### TrackCanvas Performance (P2-INV-1)
+- Root cause: per-frame LINQ allocations in DrawablePart (notes.Max/Min, .Where().ToList()) causing GC pauses
+- Fix: replace LINQ with foreach loops in DrawNotes() and stale cache cleanup
+- Priority: Stage C
+- Estimated impact: slow% 37.5% → <5%
+
+### ExpressionCanvas Profiler Missing (P2-INV-2)
+- Root cause 1: BoundExp default height=0 → Height<5 guard blocks rendering
+- Root cause 2: PaintSurfaceProfiler.End() only at L3257, 7 early returns bypass it
+- Fix: try/finally for profiler, or End() before each return
+- Priority: Stage C
+- Note: actual perf cost unknown until profiler is fixed
+
+### PianoRollTickBg MISS Cost (P2-INV-3)
+- Current MISS cost: ~50ms (27MB bitmap realloc + 156 draw calls + 12 DrawText)
+- Optimization A: Reuse bitmap when size unchanged (save 8-15ms)
+- Optimization C: DrawPoints batch (save 4-8ms)
+- Optimization E: SKImage.FromPixels (save 4-8ms)
+- Combined target: MISS cost <20ms
+- Priority: after Stage C cleanup
