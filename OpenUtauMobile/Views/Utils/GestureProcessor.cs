@@ -246,7 +246,7 @@ public class GestureProcessor : IDisposable
             {
                 CancelCurrentGesture();
                 _currentState = GestureState.Pan;
-                PanStart?.Invoke(this, new PanStartEventArgs(point.LastPosition));
+                PanStart?.Invoke(this, new PanStartEventArgs(point.LastPosition, point.StartPosition));
             }
 
             if (_currentState == GestureState.Pan)

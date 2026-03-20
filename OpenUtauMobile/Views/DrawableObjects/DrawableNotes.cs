@@ -328,8 +328,8 @@ namespace OpenUtauMobile.Views.DrawableObjects
             {
                 float left = PositionX + note.position + note.duration + Spacing / ViewModel.PianoRollTransformer.ZoomX;
                 float right = left + HandleSize / ViewModel.PianoRollTransformer.ZoomX;
-                float top = (ViewConstants.TotalPianoKeys - note.tone - 0.5f) * HeightPerPianoKey - HalfHandleSize * ViewModel.PianoRollTransformer.ZoomY;
-                float bottom = top + HandleSize * ViewModel.PianoRollTransformer.ZoomY;
+                float top = (ViewConstants.TotalPianoKeys - note.tone - 0.5f) * HeightPerPianoKey - HalfHandleSize / ViewModel.PianoRollTransformer.ZoomY;
+                float bottom = top + HandleSize / ViewModel.PianoRollTransformer.ZoomY;
                 if (point.X >= left && point.X <= right && point.Y >= top && point.Y <= bottom)
                 {
                     return note;

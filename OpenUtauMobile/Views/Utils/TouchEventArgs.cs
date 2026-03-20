@@ -22,9 +22,22 @@ namespace OpenUtauMobile.Views.Utils
     public class PanStartEventArgs : EventArgs
     {
         public SKPoint StartPosition { get; }
+        /// <summary>
+        /// 最初のタッチダウン位置（TouchPoint.StartPosition）。
+        /// ヒットテストに使用する。PanStart 発火時の5px ドリフト前の座標。
+        /// </summary>
+        public SKPoint OriginalTouchDown { get; }
+
+        /// <summary>後方互換コンストラクタ（SwitchToPanFromZoom 等から利用）</summary>
         public PanStartEventArgs(SKPoint startPosition)
+            : this(startPosition, startPosition)
+        {
+        }
+
+        public PanStartEventArgs(SKPoint startPosition, SKPoint originalTouchDown)
         {
             StartPosition = startPosition;
+            OriginalTouchDown = originalTouchDown;
         }
     }
 

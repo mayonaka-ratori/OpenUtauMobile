@@ -820,18 +820,20 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                 case EditViewModel.NoteEditMode.EditNote:
                     if (_viewModel.SelectedNotes.Count > 0 && _viewModel.EditingNotes != null && _viewModel.EditingPart != null)
                     {
-                        UNote? resizingNote = _viewModel.EditingNotes.IsPointInHandle(_viewModel.PianoRollTransformer.ActualToLogical(e.StartPosition));
+                        // BUG-A: ヒットテストにはタッチダウン元座標を使う (5px ドリフト前)
+                        var originalLogical = _viewModel.PianoRollTransformer.ActualToLogical(e.OriginalTouchDown);
+                        UNote? resizingNote = _viewModel.EditingNotes.IsPointInHandle(originalLogical);
                         if (resizingNote != null)
                         {
                             Debug.WriteLine($"准备调整选中的音符的长度");
-                            _viewModel.StartResizeNotes(_viewModel.PianoRollTransformer.ActualToLogical(e.StartPosition), resizingNote);
+                            _viewModel.StartResizeNotes(originalLogical, resizingNote);
                             return; // 找到手柄后就停止
                         }
-                        UNote? hitNote = _viewModel.EditingNotes.IsPointInNote(_viewModel.PianoRollTransformer.ActualToLogical(e.StartPosition));
+                        UNote? hitNote = _viewModel.EditingNotes.IsPointInNote(originalLogical);
                         if (hitNote != null && _viewModel.SelectedNotes.Contains(hitNote))
                         {
                             Debug.WriteLine($"准备拖动选中的音符");
-                            _viewModel.StartMoveNotes(_viewModel.PianoRollTransformer.ActualToLogical(e.StartPosition));
+                            _viewModel.StartMoveNotes(originalLogical);
                             return; // 找到选中的音符后就停止
                         }
                         _viewModel.PianoRollTransformer.StartPan(e.StartPosition); // 否则平移画布

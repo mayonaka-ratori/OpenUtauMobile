@@ -91,6 +91,28 @@
 
 - コミット: `(本コミット)`
 
+### P2-B2: PianoRollCanvas 最適化 / DrawableNotes (2026-03-20)
+- **BN-1**: `SelectedNotes` を `List` → `HashSet` に変更。`IsPointInHandle` 内の `Contains()` が O(n²) → O(1) に改善
+- **BN-2**: `DrawRectangle()` + `DrawLyrics()` の 2パスループを `DrawNotesAndLyrics()` 単一パスに統合。ノート数 N に対して反復回数を 2N → N に削減
+- **BN-3**: `PianoRollTransformer.ZoomX / ZoomY / PanX / PanY` をループ外ローカル変数にキャッシュ。ノートごとのプロパティチェーン呼び出しを排除
+- 結果: PianoRollCanvas max **31.85ms → 20.29ms**、slow **1.8% → 0.5%**
+- コミット: `(本コミット)`
+
+### P2-B3: タッチ操作バグ修正 — BUG-A / BUG-B (2026-03-20)
+
+**BUG-B — `IsPointInHandle` Y軸座標バグ修正 (DrawableNotes.cs:331-332)**
+- `* ViewModel.PianoRollTransformer.ZoomY` → `/ ViewModel.PianoRollTransformer.ZoomY` に変更
+- X軸が `/ ZoomX` パターンを使用しているのに対し Y軸のみ乗算になっていた不整合を修正
+- ZoomY ≠ 1.0 のすべてのズーム状態でハンドルのヒット領域が描画位置と一致するようになる
+- `IsPointInNote`: ZoomY を使用しておらず問題なし（変更不要と確認）
+
+**BUG-A — `PanStart` が 5px ドリフト後の座標をヒットテストに使用していた問題修正**
+- `TouchEventArgs.cs`: `PanStartEventArgs` に `OriginalTouchDown` プロパティを追加（後方互換・1引数コンストラクタ維持）
+- `GestureProcessor.cs:249`: `new PanStartEventArgs(point.LastPosition, point.StartPosition)` に変更
+- `EditPage.xaml.cs:821-838`: PianoRoll PanStart ハンドラのヒットテスト (`IsPointInHandle`/`IsPointInNote`/`StartResizeNotes`/`StartMoveNotes`) を `e.OriginalTouchDown` に統一。キャンバスパン用 `StartPan(e.StartPosition)` は変更なし
+- 他ハンドラ (TrackCanvas / TimeLine / Expression) は既存 `e.StartPosition` を継続使用 → コンパイルエラーなし確認
+- コミット: `(本コミット)`
+
 ### P2-5c: PianoRollTickBackgroundCanvas キャッシュ + SKImage最適化 (2026-03-19)
 - 水平方向 3x 幅 SKBitmap キャッシュ + シャドウ毎フレーム動的描画 (Approach A)
 - 3 Canvas 全てで SKImage.FromBitmap + DrawImage srcRect に置換
@@ -112,6 +134,7 @@
 | 2026-03-18 | P2-5a+5b後 | max=25ms<br/>frame count 21→6 | max=40ms<br/>slow=11% | **max=6ms**<br/>**slow=0%** ✅ | max=25ms<br/>slow=0.5% | max=1.8ms<br/>slow=0% |
 | 2026-03-19 | P2-5c SKImage+srcRect | max=22ms (2fr only) ✅ | **max=33ms**<br/>**slow=8.9%** | **max=4ms**<br/>**slow=0%** ✅ | **max=7ms**<br/>**slow=0%** ✅ | — |
 | 2026-03-20 | P2-B1 ノート描画修正後 | — | — | max=10.34ms<br/>(zoom heavy) | — | — |
+| 2026-03-20 | P2-B2 DrawableNotes 最適化後 | — | — | — | — | — |
 
 **P2-B1 新規出現 Canvas (2026-03-20):**
 
@@ -121,6 +144,16 @@
 | PhonemeCanvas | 🆕 NEW | 3.17ms | 0% | ✅ 目標達成 |
 | PianoRollPitchCanvas | 🆕 NEW | 0.79ms | 0% | ✅ 目標達成 |
 | PianoKeysCanvas | 🔶 軽微regression | 4.12ms→10.34ms | — | ズーム高負荷時のみ、許容範囲 |
+
+**P2-B2 最適化後 Canvas (2026-03-20):**
+
+| Canvas | Before | After | slow Before | slow After | 備考 |
+|--------|--------|-------|------------|-----------|------|
+| PianoRollCanvas | 31.85ms | **20.29ms** | 1.8% | **0.5%** | ✅ BN-1/2/3 適用 |
+| PianoRollTickBg | — | 56.27ms | — | 24.4% | ズーム高負荷テスト（許容範囲） |
+| PhonemeCanvas | 3.17ms | **23.78ms** | 0% | **0.4%** | 🔶 要観察（音節数依存） |
+| PianoRollPitchCanvas | 0.79ms | **0.81ms** | 0% | **0%** | ✅ 変化なし |
+| 合計稼働 Canvas | 7本 | **10本** | — | — | B1 修正でノート系 3本追加 |
 
 **注記:**
 - PlaybackTickBg: キャッシュ HIT 時のみフレーム数計測、MISS は ~22ms (2フレームのみ) ✅
@@ -163,6 +196,8 @@
 | 2026-03-19 | PianoRollTickBg slow 8.9% は許容範囲と判断 | HIT フレームは全て <8ms。slow 8.9% は MISS フレームのみ（キャッシュ再生成 ~33ms）。実用上問題なし |
 | 2026-03-20 | SetPanLimit() re-clamp confirmed sufficient; no additional pan correction needed after zoom | Transformer.SetPanLimit() は内部で `PanX = InvalidatePanX(PanX)` を即時実行。UpdatePianoRollCanvasPanLimit() 呼び出しで再クランプ完結。EditPage 側への追加コード不要 |
 | 2026-03-20 | GestureState.Zoom omission in HandleTouchUp was root cause of gray screen freeze | HandleTouchUp の case 1 条件に Zoom が含まれていなかったため、2軸ズーム中に片指を離しても SwitchToPanFromZoom() が呼ばれず残指パン不能。HandleTouchCancel との不整合が原因 |
+| 2026-03-20 | BUG-A/B/C は Phase 2 リグレッションではなく upstream 既存バグと判定 | P2-B2 の DrawableNotes 変更でタッチ経路は無改変。IsPointInHandle の ZoomY 乗算バグと PanStart ドリフト問題はともに変更前から存在 |
+| 2026-03-20 | PanStartEventArgs を後方互換拡張（OriginalTouchDown 追加） | 既存の 1引数コンストラクタを残しつつ 2引数版を追加。SwitchToPanFromZoom 等の既存呼び出しはフォールバックで OriginalTouchDown = StartPosition となり無変更でコンパイル通過 |
 
 ---
 
@@ -185,8 +220,15 @@
 - [x] **P2-B1** ノート未描画問題の調査・修正 (SelectedParts ガード) — 完了 2026-03-20
   - [x] **P2-B1a** Auto-select first VoicePart on project load (EditPage.xaml.cs)
   - [x] **P2-B1b** Fix GestureProcessor.Zoom state missing in HandleTouchUp and FinalizeGesture (GestureProcessor.cs)
-- [ ] **P2-B2** ノート表示状態での全Canvas再計測（ExpressionCanvas, PhonemeCanvas, PianoRollPitchCanvas を含む）
-- [ ] **P2-B3** 再計測結果に基づく追加最適化の優先度決定
+- [x] **P2-B2** PianoRollCanvas 最適化（DrawableNotes.cs） — 完了 2026-03-20
+  - [x] BN-1: SelectedNotes HashSet O(1) lookup（旧 List.Contains O(n²)）
+  - [x] BN-2: DrawRectangle + DrawLyrics を単一パス DrawNotesAndLyrics に統合
+  - [x] BN-3: Transformer プロパティをローカルキャッシュ化（ノートごとのプロパティチェーン排除）
+  - 結果: PianoRollCanvas max 31.85ms → 20.29ms、slow 1.8% → 0.5%
+- [x] **P2-B3** タッチ操作バグ修正 — 🔄 IN PROGRESS 2026-03-20
+  - [x] **BUG-B**: `IsPointInHandle` Y軸が `* ZoomY` → `/ ZoomY` 修正（DrawableNotes.cs:331-332）— 実機テスト待ち
+  - [x] **BUG-A**: `PanStartEventArgs` に `OriginalTouchDown` 追加、GestureProcessor + EditPage PianoRoll ハンドラ修正 — 実機テスト待ち
+  - [ ] **BUG-C**: パン操作無応答（調査完了、修正保留）
 
 ### Stage C — リファクタ・クリーンアップ
 
