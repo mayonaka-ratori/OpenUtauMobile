@@ -1,23 +1,35 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <!-- Multi-target: net9.0 for desktop test execution, net9.0-android for EditViewModel build verification -->
+    <TargetFrameworks>net9.0;net9.0-android</TargetFrameworks>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
+    <!-- MAUI only needed for Android target (EditViewModel uses DeviceDisplay, Rect, etc.) -->
+    <UseMaui Condition="$(TargetFramework.Contains('android'))">true</UseMaui>
+    <!-- Android test assembly must be Library — Exe requires Activity/manifest -->
+    <OutputType Condition="$(TargetFramework.Contains('android'))">Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="xunit" Version="2.9.0" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
     <PackageReference Include="NSubstitute" Version="5.3.0" />
-    <PackageReference Include="SkiaSharp" Version="3.116.1" />
+    <!-- SkiaSharp version must match OpenUtauMobile's transitive dependency (via SkiaSharp.Views.Maui.Controls 3.119.0-stable.1) -->
+    <PackageReference Include="SkiaSharp" Version="3.119.0-stable.1" />
     <PackageReference Include="ReactiveUI" Version="20.2.45" />
     <PackageReference Include="ReactiveUI.Fody" Version="19.5.41" />
   </ItemGroup>
+  <!-- Core reference for all TFMs (SmokeTests use OpenUtau.Core.Ustx directly) -->
   <ItemGroup>
     <ProjectReference Include="..\OpenUtau.Core\OpenUtau.Core.csproj" />
   </ItemGroup>
-  <ItemGroup>
+  <!-- net9.0 only: linked Transformer source (no MAUI dependency) -->
+  <ItemGroup Condition="!$(TargetFramework.Contains('android'))">
     <Compile Include="..\OpenUtauMobile\Views\Utils\Transformer.cs" Link="LinkedSources\Transformer.cs" />
+  </ItemGroup>
+  <!-- net9.0-android only: full mobile project reference (EditViewModel, Transformer, etc.) -->
+  <ItemGroup Condition="$(TargetFramework.Contains('android'))">
+    <ProjectReference Include="..\OpenUtauMobile\OpenUtauMobile.csproj" />
   </ItemGroup>
 </Project>
