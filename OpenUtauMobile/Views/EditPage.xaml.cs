@@ -306,11 +306,11 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             .Subscribe(mode =>
             {
                 Color? activeColor = _skColorConverter.Convert(ThemeColorsManager.Current.ActiveNoteEditModeButton, typeof(Color), null, null!) as Color;
-                ButtonSwitchEditNoteMode.BackgroundColor = mode == EditViewModel.NoteEditMode.EditNote ? activeColor : Colors.Transparent;
-                ButtonSwitchEditPitchCurveMode.BackgroundColor = mode == EditViewModel.NoteEditMode.EditPitchCurve ? activeColor : Colors.Transparent;
-                ButtonSwitchEditPitchAnchorMode.BackgroundColor = mode == EditViewModel.NoteEditMode.EditPitchAnchor ? activeColor : Colors.Transparent;
-                ButtonSwitchEditVibratoMode.BackgroundColor = mode == EditViewModel.NoteEditMode.EditVibrato ? activeColor : Colors.Transparent;
-                _viewModel.IsShowSelectButton = mode == EditViewModel.NoteEditMode.EditNote;
+                ButtonSwitchEditNoteMode.BackgroundColor = mode == NoteEditMode.EditNote ? activeColor : Colors.Transparent;
+                ButtonSwitchEditPitchCurveMode.BackgroundColor = mode == NoteEditMode.EditPitchCurve ? activeColor : Colors.Transparent;
+                ButtonSwitchEditPitchAnchorMode.BackgroundColor = mode == NoteEditMode.EditPitchAnchor ? activeColor : Colors.Transparent;
+                ButtonSwitchEditVibratoMode.BackgroundColor = mode == NoteEditMode.EditVibrato ? activeColor : Colors.Transparent;
+                _viewModel.IsShowSelectButton = mode == NoteEditMode.EditNote;
                 // 重绘画布
                 PianoRollCanvas.InvalidateSurface();
                 PianoRollPitchCanvas.InvalidateSurface();
@@ -321,9 +321,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             .Subscribe(mode =>
             {
                 Color? activeColor = _skColorConverter.Convert(ThemeColorsManager.Current.ActiveNoteEditModeButton, typeof(Color), null, null!) as Color;
-                ButtonSwitchExpressionHandMode.BackgroundColor = mode == EditViewModel.ExpressionEditMode.Hand ? activeColor : Colors.Transparent;
-                ButtonSwitchExpressionEditMode.BackgroundColor = mode == EditViewModel.ExpressionEditMode.Edit ? activeColor : Colors.Transparent;
-                ButtonSwitchExpressionEraserMode.BackgroundColor = mode == EditViewModel.ExpressionEditMode.Eraser ? activeColor : Colors.Transparent;
+                ButtonSwitchExpressionHandMode.BackgroundColor = mode == ExpressionEditMode.Hand ? activeColor : Colors.Transparent;
+                ButtonSwitchExpressionEditMode.BackgroundColor = mode == ExpressionEditMode.Edit ? activeColor : Colors.Transparent;
+                ButtonSwitchExpressionEraserMode.BackgroundColor = mode == ExpressionEditMode.Eraser ? activeColor : Colors.Transparent;
             })
             .DisposeWith(_disposables);
         // 回放定时器，定时通知回放管理器更新播放位置
@@ -522,7 +522,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             DocManager.Inst.ExecuteCmd(new SeekPlayPosTickNotification((int)_viewModel.TrackTransformer.ActualToLogical(e.Position).X));
             switch (_viewModel.CurrentTrackEditMode)
             {
-                case EditViewModel.TrackEditMode.Normal: // 只读模式
+                case TrackEditMode.Normal: // 只读模式
                     // 遍历所有可绘制对象，检查点击位置是否在其范围内
                     foreach (var part in _viewModel.DrawableParts)
                     {
@@ -550,7 +550,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                     PianoRollCanvas.InvalidateSurface();
                     PianoRollPitchCanvas.InvalidateSurface();
                     break;
-                case EditViewModel.TrackEditMode.Edit: // 编辑模式
+                case TrackEditMode.Edit: // 编辑模式
                     // 先遍历所有可绘制对象，检查点击位置是否在其范围内
                     foreach (var part in _viewModel.DrawableParts)
                     {
@@ -588,9 +588,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             Debug.WriteLine($"双击走带事件: {e.Position}");
             switch (_viewModel.CurrentTrackEditMode)
             {
-                case EditViewModel.TrackEditMode.Normal: // 只读模式
+                case TrackEditMode.Normal: // 只读模式
                     break;
-                case EditViewModel.TrackEditMode.Edit: // 编辑模式
+                case TrackEditMode.Edit: // 编辑模式
                     break;
             }
         };
@@ -600,11 +600,11 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             Debug.WriteLine($"平移开始: {e.StartPosition}");
             switch (_viewModel.CurrentTrackEditMode)
             {
-                case EditViewModel.TrackEditMode.Normal: // 只读模式
+                case TrackEditMode.Normal: // 只读模式
                     // 开始平移
                     _viewModel.TrackTransformer.StartPan(e.StartPosition);
                     break;
-                case EditViewModel.TrackEditMode.Edit: // 编辑模式
+                case TrackEditMode.Edit: // 编辑模式
 
                     // 先遍历所有可绘制对象，检查点击位置是否在其范围内
                     foreach (var part in _viewModel.DrawableParts)
@@ -633,13 +633,13 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 
             switch (_viewModel.CurrentTrackEditMode) // 分情况讨论
             {
-                case EditViewModel.TrackEditMode.Normal: // 只读模式
+                case TrackEditMode.Normal: // 只读模式
                     // 更新平移位置
                     _viewModel.TrackTransformer.UpdatePan(e.Position);
                     // 同步ScrollView的滚动位置
                     UpdateLeftScrollView();
                     break;
-                case EditViewModel.TrackEditMode.Edit: // 编辑模式
+                case TrackEditMode.Edit: // 编辑模式
                     if (_viewModel.IsMovingParts)
                     {
                         _viewModel.UpdateMoveParts(_viewModel.TrackTransformer.ActualToLogical(e.Position)); // 如果正在拖动分片，更新分片位置
@@ -666,12 +666,12 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         {
             switch (_viewModel.CurrentTrackEditMode)
             {
-                case EditViewModel.TrackEditMode.Normal: // 只读模式
+                case TrackEditMode.Normal: // 只读模式
                     // 结束平移
                     _viewModel.TrackTransformer.EndPan();
                     // TrackCanvas.InvalidateSurface();
                     break;
-                case EditViewModel.TrackEditMode.Edit: // 编辑模式
+                case TrackEditMode.Edit: // 编辑模式
                     if (_viewModel.IsMovingParts)
                     {
                         _viewModel.IsMovingParts = false; // 重置拖动状态
@@ -745,7 +745,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             }
             switch (_viewModel.CurrentNoteEditMode)
             {
-                case EditViewModel.NoteEditMode.EditNote:
+                case NoteEditMode.EditNote:
                     UNote? hitNote = _viewModel.EditingNotes.IsPointInNote(_viewModel.PianoRollTransformer.ActualToLogical(e.Position));
                     if (hitNote == null) // 如果没有点击音符
                     {
@@ -761,7 +761,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                     else // 点击到了音符
                     {
                         Debug.WriteLine($"点击了音符: {hitNote.lyric} ({hitNote.tone})");
-                        if (_viewModel.CurrentSelectMode == EditViewModel.SelectionMode.Multi)
+                        if (_viewModel.CurrentSelectMode == OpenUtauMobile.ViewModels.SelectionMode.Multi)
                         {
                             if (_viewModel.SelectedNotes.Contains(hitNote))
                             {
@@ -780,11 +780,11 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                     PianoRollCanvas.InvalidateSurface();
                     _viewModel.HandleSelectedNotesChanged();
                     break;
-                case EditViewModel.NoteEditMode.EditPitchCurve:
+                case NoteEditMode.EditPitchCurve:
                     break;
-                case EditViewModel.NoteEditMode.EditPitchAnchor:
+                case NoteEditMode.EditPitchAnchor:
                     break;
-                case EditViewModel.NoteEditMode.EditVibrato:
+                case NoteEditMode.EditVibrato:
                     break;
                 default:
                     break;
@@ -800,7 +800,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             }
             switch (_viewModel.CurrentNoteEditMode)
             {
-                case EditViewModel.NoteEditMode.EditNote:
+                case NoteEditMode.EditNote:
                     UNote? hitNote = _viewModel.EditingNotes.IsPointInNote(_viewModel.PianoRollTransformer.ActualToLogical(e.Position));
                     if (hitNote != null && _viewModel.EditingPart is UVoicePart editingPart) // 双击音符，编辑歌词
                     {
@@ -809,11 +809,11 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                         object? _ = await this.ShowPopupAsync(editPopup);
                     }
                     break;
-                case EditViewModel.NoteEditMode.EditPitchCurve:
+                case NoteEditMode.EditPitchCurve:
                     break;
-                case EditViewModel.NoteEditMode.EditPitchAnchor:
+                case NoteEditMode.EditPitchAnchor:
                     break;
-                case EditViewModel.NoteEditMode.EditVibrato:
+                case NoteEditMode.EditVibrato:
                     break;
                 default:
                     break;
@@ -828,7 +828,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                 // 在手柄上？ => 调整音符长度
                 // 在音符上？ => 拖动音符
                 // 否则 => 平移画布
-                case EditViewModel.NoteEditMode.EditNote:
+                case NoteEditMode.EditNote:
                     if (_viewModel.SelectedNotes.Count > 0 && _viewModel.EditingNotes != null && _viewModel.EditingPart != null)
                     {
                         // BUG-A: ヒットテストにはタッチダウン元座標を使う (5px ドリフト前)
@@ -853,7 +853,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                     // 没有选中音符或编辑的音符组，平移画布
                     _viewModel.PianoRollTransformer.StartPan(e.StartPosition);
                     break;
-                case EditViewModel.NoteEditMode.EditPitchCurve:
+                case NoteEditMode.EditPitchCurve:
                     if (_viewModel.EditingPart == null || _viewModel.EditingNotes == null)
                     {
                         return; // 如果没有选中歌声分片或音符，直接返回
@@ -870,9 +870,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                     magnifier.Show(e.StartPosition.X + 60f * (float)_viewModel.Density, e.StartPosition.Y);
 #endif
                     break;
-                case EditViewModel.NoteEditMode.EditPitchAnchor:
+                case NoteEditMode.EditPitchAnchor:
                     break;
-                case EditViewModel.NoteEditMode.EditVibrato:
+                case NoteEditMode.EditVibrato:
                     break;
                 default:
                     break;
@@ -883,7 +883,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         {
             switch (_viewModel.CurrentNoteEditMode)
             {
-                case EditViewModel.NoteEditMode.EditNote:
+                case NoteEditMode.EditNote:
                     if (_viewModel.IsMovingNotes)
                     {
                         _viewModel.UpdateMoveNotes(_viewModel.PianoRollTransformer.ActualToLogical(e.Position)); // 如果正在拖动音符，更新音符位置
@@ -897,7 +897,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                     // 更新平移位置
                     _viewModel.PianoRollTransformer.UpdatePan(e.Position);
                     break;
-                case EditViewModel.NoteEditMode.EditPitchCurve:
+                case NoteEditMode.EditPitchCurve:
                     if (_viewModel.EditingPart == null || _viewModel.EditingNotes == null)
                     {
                         return; // 如果没有选中歌声分片或音符，直接返回
@@ -913,9 +913,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                     magnifier.Show(e.Position.X + 60f * (float)_viewModel.Density, e.Position.Y);
 #endif
                     break;
-                case EditViewModel.NoteEditMode.EditPitchAnchor:
+                case NoteEditMode.EditPitchAnchor:
                     break;
-                case EditViewModel.NoteEditMode.EditVibrato:
+                case NoteEditMode.EditVibrato:
                     break;
                 default:
                     break;
@@ -926,7 +926,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             {
                 switch (_viewModel.CurrentNoteEditMode)
                 {
-                    case EditViewModel.NoteEditMode.EditNote:
+                    case NoteEditMode.EditNote:
                         if (_viewModel.IsMovingNotes)
                         {
                             _viewModel.IsMovingNotes = false; // 重置拖动状态
@@ -954,7 +954,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                             }
                         }
                         break;
-                    case EditViewModel.NoteEditMode.EditPitchCurve:
+                    case NoteEditMode.EditPitchCurve:
                         _viewModel.EndDrawPitch();
                         IsUserDrawingCurve = false;
                         PianoRollPitchCanvas.InvalidateSurface();
@@ -967,9 +967,9 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                         magnifier.Dismiss();
 #endif
                         break;
-                    case EditViewModel.NoteEditMode.EditPitchAnchor:
+                    case NoteEditMode.EditPitchAnchor:
                         break;
-                    case EditViewModel.NoteEditMode.EditVibrato:
+                    case NoteEditMode.EditVibrato:
                         break;
                     default:
                         break;
@@ -1164,15 +1164,15 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             Debug.WriteLine($"点击表情画布事件: {e.Position}");
             switch (_viewModel.CurrentExpressionEditMode)
             {
-                case EditViewModel.ExpressionEditMode.Hand:
+                case ExpressionEditMode.Hand:
                     break;
-                case EditViewModel.ExpressionEditMode.Edit:
+                case ExpressionEditMode.Edit:
                     // 数值和选项型可能需要单击也能触发
                     _viewModel.StartDrawExpression(e.Position, (float)ExpressionCanvas.Height);
                     _viewModel.UpdateDrawExpression(e.Position, (float)ExpressionCanvas.Height);
                     _viewModel.EndDrawExpression();
                     break;
-                case EditViewModel.ExpressionEditMode.Eraser:
+                case ExpressionEditMode.Eraser:
                     // 单击也能触发
                     _viewModel.StartResetExpression(e.Position);
                     _viewModel.UpdateResetExpression(e.Position);
@@ -1192,10 +1192,10 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         {
             switch (_viewModel.CurrentExpressionEditMode)
             {
-                case EditViewModel.ExpressionEditMode.Hand:
+                case ExpressionEditMode.Hand:
                     _viewModel.PianoRollTransformer.StartPan(e.StartPosition);
                     break;
-                case EditViewModel.ExpressionEditMode.Edit:
+                case ExpressionEditMode.Edit:
                     _viewModel.StartDrawExpression(e.StartPosition, (float)ExpressionCanvas.Height);
                     isDrawingExpression = true;
                     drawingExpressionPointer = e.StartPosition;
@@ -1208,7 +1208,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                     expressionMagnifier.Show(e.StartPosition.X, e.StartPosition.Y);
 #endif
                     break;
-                case EditViewModel.ExpressionEditMode.Eraser:
+                case ExpressionEditMode.Eraser:
                     _viewModel.StartResetExpression(e.StartPosition);
                     isDrawingExpression = true;
                     drawingExpressionPointer = e.StartPosition;
@@ -1230,10 +1230,10 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         {
             switch (_viewModel.CurrentExpressionEditMode)
             {
-                case EditViewModel.ExpressionEditMode.Hand:
+                case ExpressionEditMode.Hand:
                     _viewModel.PianoRollTransformer.UpdatePan(e.Position);
                     break;
-                case EditViewModel.ExpressionEditMode.Edit:
+                case ExpressionEditMode.Edit:
                     _viewModel.UpdateDrawExpression(e.Position, (float)ExpressionCanvas.Height);
                     isDrawingExpression = true;
                     drawingExpressionPointer = e.Position;
@@ -1246,7 +1246,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                     expressionMagnifier.Show(e.Position.X, e.Position.Y);
 #endif
                     break;
-                case EditViewModel.ExpressionEditMode.Eraser:
+                case ExpressionEditMode.Eraser:
                     _viewModel.UpdateResetExpression(e.Position);
                     isDrawingExpression = true;
                     drawingExpressionPointer = e.Position;
@@ -1268,7 +1268,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         {
             switch (_viewModel.CurrentExpressionEditMode)
             {
-                case EditViewModel.ExpressionEditMode.Hand:
+                case ExpressionEditMode.Hand:
                     _viewModel.PianoRollTransformer.EndPan();
                     if (_viewModel.Playing)
                     {
@@ -1280,7 +1280,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                         DocManager.Inst.ExecuteCmd(new SeekPlayPosTickNotification(newPlayPosTick));
                     }
                     break;
-                case EditViewModel.ExpressionEditMode.Edit:
+                case ExpressionEditMode.Edit:
                     _viewModel.EndDrawExpression();
                     isDrawingExpression = false;
                     ExpressionCanvas.InvalidateSurface();
@@ -1293,7 +1293,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                         expressionMagnifier.Dismiss();
 #endif
                     break;
-                case EditViewModel.ExpressionEditMode.Eraser:
+                case ExpressionEditMode.Eraser:
                     _viewModel.EndResetExpression();
                     isDrawingExpression = false;
                     ExpressionCanvas.InvalidateSurface();
@@ -1801,7 +1801,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         // 绘制分片（DrawablePart インスタンスを UPart ごとにキャッシュ）
         foreach (UPart part in currentParts)
         {
-            bool isResizeable = _viewModel.SelectedParts.Contains(part) && _viewModel.CurrentTrackEditMode == EditViewModel.TrackEditMode.Edit;
+            bool isResizeable = _viewModel.SelectedParts.Contains(part) && _viewModel.CurrentTrackEditMode == TrackEditMode.Edit;
             if (!_drawablePartCache.TryGetValue(part, out var drawablePart))
             {
                 drawablePart = new DrawablePart(_viewModel);
@@ -1843,7 +1843,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 
     private void ButtonSwitchEditMode_Clicked(object sender, EventArgs e)
     {
-        _viewModel.CurrentTrackEditMode = _viewModel.CurrentTrackEditMode == EditViewModel.TrackEditMode.Edit ? EditViewModel.TrackEditMode.Normal : EditViewModel.TrackEditMode.Edit;
+        _viewModel.CurrentTrackEditMode = _viewModel.CurrentTrackEditMode == TrackEditMode.Edit ? TrackEditMode.Normal : TrackEditMode.Edit;
         // 重绘走带画布
         TrackCanvas.InvalidateSurface();
     }
@@ -2488,23 +2488,23 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
     {
         //if (sender == ButtonSwitchNormolMode)
         //{
-        //    _viewModel.CurrentNoteEditMode = EditViewModel.NoteEditMode.Normal;
+        //    _viewModel.CurrentNoteEditMode = NoteEditMode.Normal;
         //}
         if (sender == ButtonSwitchEditNoteMode)
         {
-            _viewModel.CurrentNoteEditMode = EditViewModel.NoteEditMode.EditNote;
+            _viewModel.CurrentNoteEditMode = NoteEditMode.EditNote;
         }
         else if (sender == ButtonSwitchEditPitchCurveMode)
         {
-            _viewModel.CurrentNoteEditMode = EditViewModel.NoteEditMode.EditPitchCurve;
+            _viewModel.CurrentNoteEditMode = NoteEditMode.EditPitchCurve;
         }
         else if (sender == ButtonSwitchEditPitchAnchorMode)
         {
-            _viewModel.CurrentNoteEditMode = EditViewModel.NoteEditMode.EditPitchAnchor;
+            _viewModel.CurrentNoteEditMode = NoteEditMode.EditPitchAnchor;
         }
         else if (sender == ButtonSwitchEditVibratoMode)
         {
-            _viewModel.CurrentNoteEditMode = EditViewModel.NoteEditMode.EditVibrato;
+            _viewModel.CurrentNoteEditMode = NoteEditMode.EditVibrato;
         }
         else
         {
@@ -2619,7 +2619,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         {
             return; // 如果没有选中分片，直接返回
         }
-        if (_viewModel.CurrentNoteEditMode == EditViewModel.NoteEditMode.EditNote)
+        if (_viewModel.CurrentNoteEditMode == NoteEditMode.EditNote)
         {
             return; // 如果当前是编辑音符模式，直接返回
         }
@@ -3564,23 +3564,23 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
     {
         if (sender == ButtonSwitchExpressionHandMode)
         {
-            _viewModel.CurrentExpressionEditMode = EditViewModel.ExpressionEditMode.Hand;
+            _viewModel.CurrentExpressionEditMode = ExpressionEditMode.Hand;
         }
         else if (sender == ButtonSwitchExpressionEditMode)
         {
-            _viewModel.CurrentExpressionEditMode = EditViewModel.ExpressionEditMode.Edit;
+            _viewModel.CurrentExpressionEditMode = ExpressionEditMode.Edit;
         }
         else if (sender == ButtonSwitchExpressionEraserMode)
         {
-            _viewModel.CurrentExpressionEditMode = EditViewModel.ExpressionEditMode.Eraser;
+            _viewModel.CurrentExpressionEditMode = ExpressionEditMode.Eraser;
         }
     }
     private void ButtonSelect_Clicked(object sender, EventArgs e)
     {
         _viewModel.CurrentSelectMode = 
-        _viewModel.CurrentSelectMode == EditViewModel.SelectionMode.Multi 
-                ? EditViewModel.SelectionMode.Single 
-                : EditViewModel.SelectionMode.Multi;
+        _viewModel.CurrentSelectMode == OpenUtauMobile.ViewModels.SelectionMode.Multi 
+                ? OpenUtauMobile.ViewModels.SelectionMode.Single 
+                : OpenUtauMobile.ViewModels.SelectionMode.Multi;
         _viewModel.SelectedNotes.Clear(); 
         PianoRollCanvas.InvalidateSurface(); 
     }

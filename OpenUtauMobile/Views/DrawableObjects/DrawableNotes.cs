@@ -158,7 +158,7 @@ namespace OpenUtauMobile.Views.DrawableObjects
             }
 
             // 绘制可拖拽手柄 — drawn on top after all notes
-            if (ViewModel.SelectedNotes.Count > 0 && ViewModel.CurrentNoteEditMode == EditViewModel.NoteEditMode.EditNote)
+            if (ViewModel.SelectedNotes.Count > 0 && ViewModel.CurrentNoteEditMode == NoteEditMode.EditNote)
             {
                 float halfHandleSize = (float)(DefaultTouchTargetSize * density);
                 float handleSize = halfHandleSize * 2;
@@ -216,7 +216,7 @@ namespace OpenUtauMobile.Views.DrawableObjects
         /// <returns></returns>
         public UNote? IsPointInHandle(SKPoint point)
         {
-            if (ViewModel.SelectedNotes.Count == 0 || ViewModel.CurrentNoteEditMode != EditViewModel.NoteEditMode.EditNote)
+            if (ViewModel.SelectedNotes.Count == 0 || ViewModel.CurrentNoteEditMode != NoteEditMode.EditNote)
             {
                 return null;
             }

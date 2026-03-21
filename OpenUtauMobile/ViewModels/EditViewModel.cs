@@ -56,40 +56,6 @@ namespace OpenUtauMobile.ViewModels
         public double OriginalVolume { get; set; } = 0d; // 保存原始音量
         public int[] SnapDivs = [4, 8, 16, 32, 64, 128, 3, 6, 12, 24, 48, 96, 192]; // 常用量化单位数组
         #region 编辑模式
-        public enum TrackEditMode // 定义走带编辑模式（枚举类型）
-        {
-            // 只读模式
-            Normal,
-            // 编辑模式
-            Edit,
-        };
-        public enum NoteEditMode // 定义音符编辑模式（枚举类型）
-        {
-            // 只读模式
-            // Normal,
-            // 音符编辑模式
-            EditNote,
-            // 音高曲线编辑模式
-            EditPitchCurve,
-            // 音高锚点编辑模式
-            EditPitchAnchor,
-            // 颤音编辑模式
-            EditVibrato,
-        };
-        public enum ExpressionEditMode // 定义表达式编辑模式（枚举类型）
-        {
-            // 只读模式
-            Hand,
-            // 编辑模式
-            Edit,
-            // 橡皮擦模式
-            Eraser,
-        };
-        public enum SelectionMode
-        {
-            Single,
-            Multi,
-        }
         /// <summary>
         /// 当前走带编辑模式
         /// </summary>
