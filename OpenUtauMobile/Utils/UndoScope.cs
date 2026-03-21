@@ -5,7 +5,7 @@ namespace OpenUtauMobile.Utils;
 /// disposable scope so that 'using var undo = new UndoScope();'
 /// guarantees the group is closed — even if an exception occurs.
 /// </summary>
-internal sealed class UndoScope : IDisposable
+public sealed class UndoScope : IDisposable
 {
     private bool _disposed;
     public UndoScope()
