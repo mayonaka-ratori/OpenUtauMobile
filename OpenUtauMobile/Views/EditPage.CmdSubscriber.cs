@@ -7,28 +7,12 @@
 // Subscribe/Unsubscribe calls remain in the constructor and Dispose() in EditPage.xaml.cs.
 
 using CommunityToolkit.Maui.Alerts;
-using CommunityToolkit.Maui.Views;
-using OpenUtau.Api;
 using OpenUtau.Core;
-using OpenUtau.Core.Render;
 using OpenUtau.Core.Ustx;
-using OpenUtau.Utils.Messages;
 using OpenUtauMobile.Utils;
 using OpenUtauMobile.ViewModels;
-using OpenUtauMobile.ViewModels.Converters;
-using OpenUtauMobile.Views.Controls;
-using OpenUtauMobile.Views.DrawableObjects;
 using OpenUtauMobile.Views.Utils;
 using OpenUtauMobile.Resources.Strings;
-using ReactiveUI;
-using Serilog;
-using SkiaSharp;
-using System.Diagnostics;
-using System.Reactive.Disposables;
-using Preferences = OpenUtau.Core.Util.Preferences;
-using DynamicData;
-using OpenUtau.Core.Format;
-using System.Threading.Tasks;
 
 namespace OpenUtauMobile.Views;
 

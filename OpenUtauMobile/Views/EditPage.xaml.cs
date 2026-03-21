@@ -761,6 +761,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                     else // 点击到了音符
                     {
                         Debug.WriteLine($"点击了音符: {hitNote.lyric} ({hitNote.tone})");
+                        // Fully qualified to avoid conflict with Microsoft.Maui.Controls.SelectionMode
                         if (_viewModel.CurrentSelectMode == OpenUtauMobile.ViewModels.SelectionMode.Multi)
                         {
                             if (_viewModel.SelectedNotes.Contains(hitNote))
