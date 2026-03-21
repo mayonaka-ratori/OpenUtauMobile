@@ -139,6 +139,8 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
     private DrawableTrackBackground? _drawableTrackBackground;
     // DrawablePart は UPart ごとにキャッシュ（Dictionary で管理）
     private readonly Dictionary<UPart, DrawablePart> _drawablePartCache = new();
+    // P2-C3: Reusable buffer for stale cache key collection — avoids .Where().ToList() allocation per frame
+    private readonly List<UPart> _stalePartKeysBuffer = new();
     private DrawableNotes? _drawableNotes;
     private DrawableTickBackground? _drawableTickBackground;
     private DrawablePianoRollTickBackground? _drawablePianoRollTickBackground;
@@ -379,6 +381,14 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
     private void OnMainEditSizeChanged(object? sender, EventArgs e)
     {
         _viewModel.MainEditHeight = MainEdit.Height;
+        // Ensure expression area has a minimum visible height.
+        // Default ExpHeight=50 gives BoundExp.Height=0 (50-50=0), blocking ExpressionCanvas rendering.
+        // Set to 150 so BoundExp.Height=100px when user has not yet dragged the divider.
+        const double minExpHeight = 150d;
+        if (_viewModel.ExpHeight <= 50d)
+        {
+            _viewModel.ExpHeight = minExpHeight;
+        }
         _viewModel.DivExpPosY = _viewModel.MainEditHeight - _viewModel.ExpHeight;
         _viewModel.SetBoundExpDivControl();
         _viewModel.UpdatePianoRollExpBoundaries();
@@ -1757,6 +1767,8 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 #if DEBUG
         var _sw = PaintSurfaceProfiler.Start();
 #endif
+        try
+        {
         // 清空画布
         e.Surface.Canvas.Clear(SKColors.Transparent);
         if (e.Surface.Canvas.DeviceClipBounds.Height < 5) // 没办法，提高性能
@@ -1772,10 +1784,15 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         _drawableTrackBackground.Draw();
         // 清空可绘制对象集合
         _viewModel.DrawableParts.Clear();
-        // キャッシュから削除されたパートのエントリを除去
+        // キャッシュから削除されたパートのエントリを除去（P2-C3: .Where().ToList() → 再利用バッファで毎フレームアロケーション排除）
         var currentParts = DocManager.Inst.Project.parts;
-        var staleKeys = _drawablePartCache.Keys.Where(k => !currentParts.Contains(k)).ToList();
-        foreach (var staleKey in staleKeys)
+        _stalePartKeysBuffer.Clear();
+        foreach (var key in _drawablePartCache.Keys)
+        {
+            if (!currentParts.Contains(key))
+                _stalePartKeysBuffer.Add(key);
+        }
+        foreach (var staleKey in _stalePartKeysBuffer)
         {
             _drawablePartCache[staleKey].Dispose();
             _drawablePartCache.Remove(staleKey);
@@ -1795,9 +1812,13 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             _viewModel.DrawableParts.Add(drawablePart);
             drawablePart.Draw();
         }
+        }
+        finally
+        {
 #if DEBUG
-        PaintSurfaceProfiler.End(_sw, nameof(TrackCanvas));
+            PaintSurfaceProfiler.End(_sw, nameof(TrackCanvas));
 #endif
+        }
     }
 
 
@@ -1831,6 +1852,8 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 #if DEBUG
         var _sw = PaintSurfaceProfiler.Start();
 #endif
+        try
+        {
         // 清空画布
         e.Surface.Canvas.Clear(SKColors.Transparent);
         if (e.Surface.Canvas.DeviceClipBounds.Height < 5)
@@ -1861,9 +1884,13 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             _drawableNotes.Draw();
             _viewModel.EditingNotes = _drawableNotes;
         }
+        }
+        finally
+        {
 #if DEBUG
-        PaintSurfaceProfiler.End(_sw, nameof(PianoRollCanvas));
+            PaintSurfaceProfiler.End(_sw, nameof(PianoRollCanvas));
 #endif
+        }
     }
 
     private void PianoRollCanvas_Touch(object sender, SkiaSharp.Views.Maui.SKTouchEventArgs e)
@@ -2556,6 +2583,8 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 #if DEBUG
         var _sw = PaintSurfaceProfiler.Start();
 #endif
+        try
+        {
         SKCanvas canvas = e.Surface.Canvas;
         canvas.Clear();
         if (_viewModel.EditingPart == null || _viewModel.EditingPart is not UVoicePart)
@@ -2607,9 +2636,13 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         {
             canvas.DrawCircle(TouchingPoint, 10f, _touchCursorPaint);
         }
+        }
+        finally
+        {
 #if DEBUG
-        PaintSurfaceProfiler.End(_sw, nameof(PianoRollPitchCanvas));
+            PaintSurfaceProfiler.End(_sw, nameof(PianoRollPitchCanvas));
 #endif
+        }
     }
 
     /// <summary>
@@ -2975,6 +3008,8 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 #if DEBUG
         var _sw = PaintSurfaceProfiler.Start();
 #endif
+        try
+        {
         SKCanvas canvas = e.Surface.Canvas;
         // 清空画布
         canvas.Clear();
@@ -3060,9 +3095,13 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                 canvas.DrawText(displayPhoneme, x + 2, 15 * (float)_viewModel.Density, _textFont12, ThemeColorsManager.Current.PhonemeTextPaint);
             }
         }
+        }
+        finally
+        {
 #if DEBUG
-        PaintSurfaceProfiler.End(_sw, nameof(PhonemeCanvas));
+            PaintSurfaceProfiler.End(_sw, nameof(PhonemeCanvas));
 #endif
+        }
     }
 
     private void PhonemeCanvas_Touch(object sender, SkiaSharp.Views.Maui.SKTouchEventArgs e)
@@ -3075,6 +3114,8 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
 #if DEBUG
         var _sw = PaintSurfaceProfiler.Start();
 #endif
+        try
+        {
         SKCanvas canvas = e.Surface.Canvas;
         canvas.Clear();
         if (e.Surface.Canvas.DeviceClipBounds.Height < 5)
@@ -3260,9 +3301,13 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             // 绘制数値
             canvas.DrawText($"{_viewModel.currentExpressionValue}", drawingExpressionPointer.X - 12f, drawingExpressionPointer.Y - 12f, _textFont12, ThemeColorsManager.Current.ExpressionOptionTextPaint);
         }
+        }
+        finally
+        {
 #if DEBUG
-        PaintSurfaceProfiler.End(_sw, nameof(ExpressionCanvas));
+            PaintSurfaceProfiler.End(_sw, nameof(ExpressionCanvas));
 #endif
+        }
     }
 
     private void ExpressionCanvas_Touch(object sender, SkiaSharp.Views.Maui.SKTouchEventArgs e)

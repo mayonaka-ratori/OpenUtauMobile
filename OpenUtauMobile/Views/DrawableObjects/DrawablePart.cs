@@ -251,9 +251,14 @@ namespace OpenUtauMobile.Views.DrawableObjects
         /// </summary>
         public void DrawNotes(UVoicePart voicePart)
         {
-            // Notes
-            int maxTone = voicePart.notes.Max(note => note.tone);
-            int minTone = voicePart.notes.Min(note => note.tone);
+            // Notes — Max/Min computed via foreach to avoid per-frame LINQ iterator allocations (P2-C3)
+            int maxTone = int.MinValue;
+            int minTone = int.MaxValue;
+            foreach (var n in voicePart.notes)
+            {
+                if (n.tone > maxTone) maxTone = n.tone;
+                if (n.tone < minTone) minTone = n.tone;
+            }
             int leftTick = (int)(-ViewModel.TrackTransformer.PanX / ViewModel.TrackTransformer.ZoomX);
             int rightTick = (int)(Canvas.DeviceClipBounds.Size.Width / ViewModel.TrackTransformer.ZoomX + leftTick);
 
@@ -344,9 +349,16 @@ namespace OpenUtauMobile.Views.DrawableObjects
                 {
                     for (int i = 0; i < peaks.Length; ++i)
                     {
-                        ArraySegment<float> segment = new ArraySegment<float>(peaks[i].Samples, sampleIndex, nextSampleIndex - sampleIndex);
-                        float min = segment.Min();
-                        float max = segment.Max();
+                        // Manual min/max loop — avoids LINQ iterator allocation per pixel column (P2-C3)
+                        float min = float.MaxValue;
+                        float max = float.MinValue;
+                        float[] samples = peaks[i].Samples;
+                        for (int j = sampleIndex; j < nextSampleIndex; j++)
+                        {
+                            float v = samples[j];
+                            if (v < min) min = v;
+                            if (v > max) max = v;
+                        }
                         float ySpan = peaks.Length == 1 ? monoChnlAmp : stereoChnlAmp;
                         float yOffset = i == 1 ? monoChnlAmp : 0;
                         Canvas.DrawLine(x,

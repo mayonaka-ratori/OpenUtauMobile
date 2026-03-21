@@ -36,6 +36,9 @@
 
 ### Category C: リファクタ・クリーンアップ
 
+- [x] **[P2-C1]** ExpressionCanvas 可視化修正 + Profiler try/finally カバレッジ — 完了 2026-03-21
+- [x] **[P2-C2]** DrawableNotes 廃止メソッド削除 (DrawRectangle/DrawLyrics) — 完了 2026-03-21
+- [x] **[P2-C3]** TrackCanvas/DrawablePart LINQ→foreach 最適化 — 完了 2026-03-21
 - [ ] **[P2-8a]** Debug.WriteLine 大幅削減 (CR3-12)
 - [ ] **[P2-8b]** IsOpenGLESSupported 修正/削除 (CR3-13)
 - [ ] **[P2-8c]** DrawablePianoKeys デッドコード削除 (CR3-02)
@@ -124,6 +127,48 @@
 
 ---
 
+## Stage C: Code Cleanup (2026-03-21)
+
+### P2-C1: ExpressionCanvas 可視化 + Profiler try/finally カバレッジ
+
+**根本原因:**
+- `ExpHeight` デフォルト値 50 → `BoundExp.Height = ExpHeight - 50 = 0` → `Height < 5` ガード常時発動
+- `PaintSurfaceProfiler.End()` が early return に到達せず Profiler に ExpressionCanvas が出現しなかった
+
+**修正内容 (`EditPage.xaml.cs`):**
+- `OnMainEditSizeChanged` に `if (_viewModel.ExpHeight <= 50d) _viewModel.ExpHeight = 150d;` を追加
+  → `BoundExp.Height = 150 - 50 = 100px` でキャンバスが初期表示される
+- 5 メソッドに try/finally を追加し `PaintSurfaceProfiler.End()` を必ず実行するよう保証:
+  - `TrackCanvas_PaintSurface` (early return 1件)
+  - `PianoRollCanvas_PaintSurface` (early return 2件)
+  - `PianoRollPitchCanvas_PaintSurface` (early return 2件)
+  - `PhonemeCanvas_PaintSurface` (early return 1件)
+  - `ExpressionCanvas_PaintSurface` (early return 6件)
+- 既に正しく対処済みの 3 メソッド (PianoKeysCanvas / PlaybackTickBg / PianoRollTickBg) は変更なし
+
+### P2-C2: DrawableNotes 廃止メソッド削除
+
+- `DrawRectangle()` (L192–259) と `DrawLyrics()` (L261–294) を削除 — 計 **104 行**
+- `[Obsolete]` 属性 2件、メソッド本体 2件を完全除去
+- 呼び出し元ゼロを確認済み (`DrawablePart.DrawRectangle` は別クラスの別メソッド)
+- `Draw()` → `DrawNotesAndLyrics()` の呼び出しチェーンに影響なし
+
+### P2-C3: TrackCanvas/DrawablePart LINQ → foreach 最適化
+
+**削除した per-frame アロケーション (計 6 箇所):**
+
+| ファイル | メソッド | 旧 LINQ | 新実装 | 削減アロケーション |
+|---------|---------|---------|--------|-----------------|
+| `DrawablePart.cs` | `DrawNotes()` | `.Max(n => n.tone)` | foreach + if | イテレータ 1本/フレーム |
+| `DrawablePart.cs` | `DrawNotes()` | `.Min(n => n.tone)` | foreach + if | イテレータ 1本/フレーム |
+| `DrawablePart.cs` | `DrawWaveform()` | `segment.Min()` | 手動 for ループ | イテレータ 1本/ピクセル列/ch |
+| `DrawablePart.cs` | `DrawWaveform()` | `segment.Max()` | 手動 for ループ | イテレータ 1本/ピクセル列/ch |
+| `EditPage.xaml.cs` | `TrackCanvas_PaintSurface` | `.Where(...).ToList()` | `_stalePartKeysBuffer` 再利用 | IEnumerable + List 2本/フレーム |
+
+**追加フィールド:** `private readonly List<UPart> _stalePartKeysBuffer = new();`
+
+---
+
 ## Performance Measurement Log
 
 実機計測: Pixel 10 Pro XL (Android 16, API 36)
@@ -135,6 +180,7 @@
 | 2026-03-19 | P2-5c SKImage+srcRect | max=22ms (2fr only) ✅ | **max=33ms**<br/>**slow=8.9%** | **max=4ms**<br/>**slow=0%** ✅ | **max=7ms**<br/>**slow=0%** ✅ | — |
 | 2026-03-20 | P2-B1 ノート描画修正後 | — | — | max=10.34ms<br/>(zoom heavy) | — | — |
 | 2026-03-20 | P2-B2 DrawableNotes 最適化後 | — | — | — | — | — |
+| 2026-03-21 | Stage C 前ベースライン | max=21.47ms<br/>slow=100% (2fr) | max=66.46ms<br/>slow=36.9% | max=26.48ms<br/>slow=1.3% | max=7.30ms<br/>slow=0% | max=16.96ms<br/>slow=40.0% |
 
 **P2-B1 新規出現 Canvas (2026-03-20):**
 
@@ -154,6 +200,22 @@
 | PhonemeCanvas | 3.17ms | **23.78ms** | 0% | **0.4%** | 🔶 要観察（音節数依存） |
 | PianoRollPitchCanvas | 0.79ms | **0.81ms** | 0% | **0%** | ✅ 変化なし |
 | 合計稼働 Canvas | 7本 | **10本** | — | — | B1 修正でノート系 3本追加 |
+
+**Stage C 前ベースライン全 Canvas (2026-03-21 09:41):**
+
+| Canvas | max (ms) | slow (%) | 目標 <8ms | 備考 |
+|--------|---------|---------|----------|------|
+| PianoRollTickBg | 66.46 | 36.9% | 🔴 | ズーム操作時 MISS コスト高 |
+| PhonemeCanvas | 48.86 | 0.3% | 🔶 | 音節数依存 |
+| PianoRollCanvas | 27.36 | 0.4% | 🔶 | B2 最適化後 |
+| PianoKeysCanvas | 26.48 | 1.3% | 🔶 | ズーム高負荷時のみ |
+| PlaybackTickBg | 21.47 | 100% (2fr) | ✅ | MISS 2フレームのみ |
+| TrackCanvas | 16.96 | 40.0% | 🔴 | P2-C3 で LINQ 排除済み — 再計測要 |
+| PianoRollKeysBg | 7.30 | 0% | ✅ |  |
+| PianoRollPitchCanvas | 0.50 | 0% | ✅ |  |
+| PlaybackPosCanvas | 0.37 | 0% | ✅ |  |
+| TimeLineCanvas | 0.00 | 0% | ✅ |  |
+| ExpressionCanvas | 未計測 | — | ❓ | P2-C1 で修正済み — 次回計測で出現予定 |
 
 **注記:**
 - PlaybackTickBg: キャッシュ HIT 時のみフレーム数計測、MISS は ~22ms (2フレームのみ) ✅
@@ -200,6 +262,7 @@
 | 2026-03-20 | PanStartEventArgs を後方互換拡張（OriginalTouchDown 追加） | 既存の 1引数コンストラクタを残しつつ 2引数版を追加。SwitchToPanFromZoom 等の既存呼び出しはフォールバックで OriginalTouchDown = StartPosition となり無変更でコンパイル通過 |
 | 2026-03-20 | GestureProcessor.ForceReset() を安全網として追加 (BUG-C) | Android システムジェスチャーが Released/Cancelled を消費した場合、_activePoints にゴミエントリが残りパン不能になる。OnAppearing で全プロセッサを ForceReset() することで復帰を保証 |
 | 2026-03-20 | HandleTouchDown にステールポイントクリーンアップを追加 (BUG-C) | GestureState.None かつ _activePoints に残存エントリがある場合、新しい TouchDown を受け取った時点でクリア。システムジェスチャー割り込み後の「ゴーストタッチ状態」を即座に解消 |
+| 2026-03-21 | Stage C 完了 — ExpressionCanvas 可視化修正、Profiler try/finally カバレッジ保証、per-frame LINQ アロケーション排除 | P2-C1: ExpHeight=150 で BoundExp.Height=100px を確保。P2-C1: 5 PaintSurface メソッドに try/finally 追加で Profiler.End() 漏れを根絶。P2-C2: DrawRectangle/DrawLyrics 廃止メソッド 104 行削除。P2-C3: DrawNotes×2 + DrawWaveform×2 + TrackCanvas×1 の LINQ → foreach 置換で GC ガベージ削減 |
 
 ---
 
@@ -237,6 +300,9 @@
 
 ### Stage C — リファクタ・クリーンアップ
 
+- [x] **P2-C1** ExpressionCanvas 可視化 + Profiler try/finally カバレッジ — 完了 2026-03-21
+- [x] **P2-C2** DrawableNotes 廃止メソッド削除 — 完了 2026-03-21
+- [x] **P2-C3** TrackCanvas LINQ → foreach 最適化 — 完了 2026-03-21
 - [ ] **P2-8a** Debug.WriteLine 削減 (CR3-12)
 - [ ] **P2-8b** IsOpenGLESSupported 修正/削除 (CR3-13)
 - [ ] **P2-8c** DrawablePianoKeys デッドコード削除 (CR3-02)
@@ -245,20 +311,13 @@
 
 ---
 
-## Investigation Backlog (2026-03-20)
+## Investigation Backlog (2026-03-21)
 
-### TrackCanvas Performance (P2-INV-1)
-- Root cause: per-frame LINQ allocations in DrawablePart (notes.Max/Min, .Where().ToList()) causing GC pauses
-- Fix: replace LINQ with foreach loops in DrawNotes() and stale cache cleanup
-- Priority: Stage C
-- Estimated impact: slow% 37.5% → <5%
+### ~~TrackCanvas Performance (P2-INV-1)~~ → P2-C3 で対処済み
+- LINQ 排除完了。次回実機計測で slow% 40.0% → <5% 改善を確認予定。
 
-### ExpressionCanvas Profiler Missing (P2-INV-2)
-- Root cause 1: BoundExp default height=0 → Height<5 guard blocks rendering
-- Root cause 2: PaintSurfaceProfiler.End() only at L3257, 7 early returns bypass it
-- Fix: try/finally for profiler, or End() before each return
-- Priority: Stage C
-- Note: actual perf cost unknown until profiler is fixed
+### ~~ExpressionCanvas Profiler Missing (P2-INV-2)~~ → P2-C1 で対処済み
+- ExpHeight 修正 + try/finally で解決。次回計測で Profiler 出現を確認予定。
 
 ### PianoRollTickBg MISS Cost (P2-INV-3)
 - Current MISS cost: ~50ms (27MB bitmap realloc + 156 draw calls + 12 DrawText)
