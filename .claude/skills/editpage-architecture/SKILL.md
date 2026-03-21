@@ -1,13 +1,32 @@
 # EditPage Architecture Map
 
-**対象ファイル**: `OpenUtauMobile/Views/EditPage.xaml.cs`
-**総行数**: 3567行
-**最終更新**: 2026-03-20 (P2-B3 BUG-C fix)
-**用途**: Claude Code が 3567行のファイルを毎回再解析せずに済むよう、構造を事前マップとして提供する。
+**対象ファイル**: `OpenUtauMobile/Views/EditPage.xaml.cs` (partial class — 4ファイルに分割済み)
+**最終更新**: 2026-03-21 (Phase 2.5 Step 5 完了)
+**用途**: Claude Code が EditPage の巨大なコードベースを毎回再解析せずに済むよう、構造を事前マップとして提供する。
+
+---
+
+## EditPage File Structure (post Phase 2.5 Step 5)
+
+| File | Lines | Responsibility |
+|------|-------|---------------|
+| EditPage.xaml.cs | 1,694 | Fields, constructor, lifecycle, gesture handlers, layout, scroll sync |
+| EditPage.Rendering.cs | 967 | 11 PaintSurface handlers + 4 drawing helpers |
+| EditPage.Toolbar.cs | 836 | 44 button handlers + 8 UI helpers (Save, AttemptExit, etc.) |
+| EditPage.CmdSubscriber.cs | 273 | OnNext command subscriber (ICmdSubscriber) |
+| EditModes.cs | 43 | TrackEditMode, NoteEditMode, ExpressionEditMode, SelectionMode enums |
+| UndoScope.cs | 33 | IDisposable undo group guard (not yet used) |
 
 ---
 
 ## Section 1: 行範囲マップ
+
+> **NOTE**: 以下の行番号は Phase 2.5 Step 5 分割前の EditPage.xaml.cs (3,640行) を参照しています。
+> 現在の行番号は各 partial class ファイルを直接確認してください:
+> - ジェスチャーハンドラ / フィールド → `EditPage.xaml.cs`
+> - PaintSurface ハンドラ / 描画ヘルパー → `EditPage.Rendering.cs`
+> - ボタンハンドラ / 保存/終了 → `EditPage.Toolbar.cs`
+> - コマンド受信 (OnNext) → `EditPage.CmdSubscriber.cs`
 
 | Region | 行範囲 | 説明 | 主要メソッド/フィールド |
 |--------|--------|------|------------------------|

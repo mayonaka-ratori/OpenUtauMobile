@@ -421,3 +421,35 @@
 - Opt-C: ThemeColorsManager.Current.*Paint ループ前ローカルキャッシュ (660+ チェーン呼び出し削除)
 - ~~Opt-D~~: DrawBitmap は slow=100% 回帰を引き起こしリバート — SKImage GPU テクスチャ維持が正解
 - Opt-E: _pianoRollBarFont.Typeface 変更ガード追加
+
+---
+
+## Phase 2.5: Refactoring (2026-03-21)
+
+### Phase A+B: Additive + Code Movement (COMPLETE)
+
+| Step | Task | Status | Commit |
+|------|------|--------|--------|
+| 1 | UndoScope guard class | ✅ | 3742545 |
+| 2 | Extract edit-mode enums to EditModes.cs | ✅ | 47db2c1 |
+| 3 | Extract PaintSurface handlers to EditPage.Rendering.cs | ✅ | d79e3af |
+| 4 | Extract button handlers to EditPage.Toolbar.cs | ✅ | 4642b26 |
+| 5 | Extract OnNext to EditPage.CmdSubscriber.cs | ✅ | fc41d47 |
+| Audit | Independent code review (0 critical, 0 warnings, 4 info) | ✅ | — |
+| Cleanup | Remove 39 unused usings + SelectionMode comment | ✅ | 060692b |
+
+EditPage.xaml.cs: 3,640 → 1,694 lines (53% reduction)
+Total partial class files: 4 (xaml.cs + Rendering + Toolbar + CmdSubscriber)
+
+### STOP GATE 1: Test Architecture Decision — PENDING
+
+PM recommendation: Option B (MAUI test project)
+Waiting for engineer decision before Steps 6-8.
+
+---
+
+## Phase 2.5 Decision Log
+
+| Date | Decision | Reason |
+| --- | --- | --- |
+| 2026-03-21 | Phase 2.5 Phase A+B completed. EditPage split into 4 partial class files. Independent audit passed with 0 critical issues. 39 unused usings cleaned. Proceeding to STOP GATE 1. | EditPage.xaml.cs は 3,640 → 1,694 行 (53% 削減)。Rendering.cs/Toolbar.cs/CmdSubscriber.cs の3ファイルに責務を分離。独立監査で重大問題ゼロを確認。SelectionMode 完全修飾コメント追加で可読性向上。 |
