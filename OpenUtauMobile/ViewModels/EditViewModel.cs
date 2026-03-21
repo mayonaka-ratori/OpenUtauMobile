@@ -123,6 +123,7 @@ namespace OpenUtauMobile.ViewModels
         public bool IsMovingParts = false; // 是否正在移动分片
         private List<int> _oldMovedPartsPos = []; // 保存移动开始时的分片position列表
         private List<int> _oldMovedPartsTrackNo = []; // 保存移动开始时的分片trackNo列表
+        private UndoScope? _movePartsUndoScope;
         #endregion
         #region 创建分片字段
         private SKPoint _startCreatePartPosition; // 用于记录开始创建分片时的起始位置
@@ -133,24 +134,28 @@ namespace OpenUtauMobile.ViewModels
         public bool IsResizingPart = false; // 是否正在调整分片长度
         private UPart? _resizingPart; // 正在调整长度的分片
         private int _resizingPartOriginalDuration; // 记录调整开始时的分片原始长度
+        private UndoScope? _resizePartUndoScope;
         #endregion
         #region 调整音符长度字段
         private UNote? _resizingNote; // 用于记录正在调整长度的音符
         public bool IsResizingNote = false; // 是否正在调整音符长度
         private int _initialBound2TouchOffset = 0; // 记录开始调整音符长度时，音符右边界到触摸点（逻辑）的初始x偏移量
+        private UndoScope? _resizeNotesUndoScope;
         #endregion
         #region 移动音符字段
         private SKPoint _startMoveNotesPosition; // 用于记录开始拖动音符时的起始位置
         public bool IsMovingNotes = false; // 是否正在移动音符
         private int _originalPosition; // 记录调整开始时的音符原始位置
         private int _startMoveNoteToneReversed; // 用于记录开始拖动音符时按住的那个音符的音高（不用减总琴键数）
-        private int _offsetPosition; // 保存上一次移动后的总位置偏移量，用于计算相对移动
-        private int _offsetTone; // 保存上一次移动后的总音高偏移量，用于计算相对移动
+        private int _offsetPosition; // 保存上一次移动后的総位置偏移量，用于计算相对移动
+        private int _offsetTone; // 保存上一次移动后的総音高偏移量，用于计算相对移动
                                  //private List<int> _originalNoteTones; // 记录调整开始时的音符原始音高
+        private UndoScope? _moveNotesUndoScope;
         #endregion
         #region 音高曲线字段
         private int? _lastPitchTick; // 记录上一个音高点的tick位置
         private double? _lastPitchValue; // 记录上一个音高点的音高值
+        private UndoScope? _drawPitchUndoScope;
         #endregion
         #region 表情参数绘制相关状态字段
         private int _lastExpTick = 0;
@@ -158,6 +163,8 @@ namespace OpenUtauMobile.ViewModels
         private UExpressionDescriptor? _editingExpressionDescriptor;
         // 正在绘制的表情参数值
         public int currentExpressionValue = 0;
+        private UndoScope? _drawExpressionUndoScope;
+        private UndoScope? _resetExpressionUndoScope;
         #endregion
         /* 后端数据相关属性 */
         [Reactive] public string Path { get; set; } = string.Empty;
@@ -507,7 +514,7 @@ namespace OpenUtauMobile.ViewModels
                 _oldMovedPartsTrackNo.Add(part.trackNo);
             }
             // 启动一个撤销组
-            DocManager.Inst.StartUndoGroup();
+            _movePartsUndoScope = new UndoScope();
         }
 
         /// <summary>
@@ -582,7 +589,8 @@ namespace OpenUtauMobile.ViewModels
         {
             IsMovingParts = false; // 重置移动状态
             // 结束撤销组
-            DocManager.Inst.EndUndoGroup();
+            _movePartsUndoScope?.Dispose();
+            _movePartsUndoScope = null;
         }
 
         /// <summary>
@@ -729,7 +737,7 @@ namespace OpenUtauMobile.ViewModels
             _resizingPart = part; // 记录正在调整长度的分片
             _resizingPartOriginalDuration = part.Duration; // 记录调整开始时的分片原始长度
             // 启动一个撤销组
-            DocManager.Inst.StartUndoGroup();
+            _resizePartUndoScope = new UndoScope();
         }
 
         internal void UpdateResizePart(SKPoint sKPoint)
@@ -756,7 +764,8 @@ namespace OpenUtauMobile.ViewModels
         internal void EndResizePart()
         {
             IsResizingPart = false; // 重置调整分片长度状态
-            DocManager.Inst.EndUndoGroup(); // 结束撤销组
+            _resizePartUndoScope?.Dispose(); // 结束撤销组
+            _resizePartUndoScope = null;
         }
 
         /// <summary>
@@ -933,7 +942,7 @@ namespace OpenUtauMobile.ViewModels
         {
             if (track.Singer != newSinger)
             {
-                DocManager.Inst.StartUndoGroup();
+                using var undo = new UndoScope();
                 DocManager.Inst.ExecuteCmd(new TrackChangeSingerCommand(DocManager.Inst.Project, track, newSinger));
                 // 先尝试从偏好设置中设置用户常用的音素器
                 if (!string.IsNullOrEmpty(newSinger?.Id) &&
@@ -962,7 +971,6 @@ namespace OpenUtauMobile.ViewModels
                     DocManager.Inst.ExecuteCmd(new TrackChangeRenderSettingCommand(DocManager.Inst.Project, track, settings));
                 }
                 DocManager.Inst.ExecuteCmd(new VoiceColorRemappingNotification(track.TrackNo, true));
-                DocManager.Inst.EndUndoGroup();
                 // 更新最近使用的歌手列表
                 if (!string.IsNullOrEmpty(newSinger?.Id) && newSinger.Found)
                 {
@@ -1080,7 +1088,7 @@ namespace OpenUtauMobile.ViewModels
             IsResizingNote = true; // 标记正在调整音符长度
             _initialBound2TouchOffset = (int)sKPoint.X - (EditingPart.position + resizingNote.position + resizingNote.duration);
             // 启动一个撤销组
-            DocManager.Inst.StartUndoGroup();
+            _resizeNotesUndoScope = new UndoScope();
         }
 
         public void StartMoveNotes(SKPoint sKPoint)
@@ -1096,7 +1104,7 @@ namespace OpenUtauMobile.ViewModels
             _offsetPosition = 0; // 重置位置偏移量
             _offsetTone = 0; // 重置音高偏移量
             // 启动一个撤销组
-            DocManager.Inst.StartUndoGroup();
+            _moveNotesUndoScope = new UndoScope();
         }
 
         internal void UpdateMoveNotes(SKPoint point)
@@ -1148,13 +1156,15 @@ namespace OpenUtauMobile.ViewModels
         public void EndMoveNotes()
         {
             IsMovingNotes = false; // 重置移动音符状态
-            DocManager.Inst.EndUndoGroup(); // 结束撤销组
+            _moveNotesUndoScope?.Dispose(); // 结束撤销组
+            _moveNotesUndoScope = null;
         }
 
         public void EndResizeNotes()
         {
             IsResizingNote = false; // 重置调整音符状态
-            DocManager.Inst.EndUndoGroup(); // 结束撤销组
+            _resizeNotesUndoScope?.Dispose(); // 结束撤销组
+            _resizeNotesUndoScope = null;
         }
 
         /// <summary>
@@ -1247,7 +1257,7 @@ namespace OpenUtauMobile.ViewModels
             _lastPitchValue = null;
             _lastPitchTick = null;
             // 启动一个撤销组
-            DocManager.Inst.StartUndoGroup();
+            _drawPitchUndoScope = new UndoScope();
         }
 
         /// <summary>
@@ -1302,7 +1312,8 @@ namespace OpenUtauMobile.ViewModels
         /// </summary>
         public void EndDrawPitch()
         {
-            DocManager.Inst.EndUndoGroup(); // 结束撤销组
+            _drawPitchUndoScope?.Dispose(); // 结束撤销组
+            _drawPitchUndoScope = null;
             _lastPitchValue = null;
             _lastPitchTick = null;
         }
@@ -1490,7 +1501,7 @@ namespace OpenUtauMobile.ViewModels
             }
             UProject project = DocManager.Inst.Project;
             List<UVoicePart> parts = OpenUtau.Core.Format.MidiWriter.Load(file, project);
-            DocManager.Inst.StartUndoGroup();
+            using var undo = new UndoScope();
             foreach (UVoicePart part in parts)
             {
                 UTrack track = new(project)
@@ -1506,7 +1517,6 @@ namespace OpenUtauMobile.ViewModels
                 DocManager.Inst.ExecuteCmd(new AddTrackCommand(project, track));
                 DocManager.Inst.ExecuteCmd(new AddPartCommand(project, part));
             }
-            DocManager.Inst.EndUndoGroup();
         }
         /// <summary>
         /// 开始绘制表情曲线
@@ -1534,7 +1544,7 @@ namespace OpenUtauMobile.ViewModels
             }
             _lastExpTick = (int)PianoRollTransformer.ActualToLogicalX(point.X) - EditingPart.position;
             _lastExpValue = (int)(_editingExpressionDescriptor.max - point.Y * (_editingExpressionDescriptor.max - _editingExpressionDescriptor.min) / (float)canvasHeight / (float)Density);
-            DocManager.Inst.StartUndoGroup();
+            _drawExpressionUndoScope = new UndoScope();
         }
         /// <summary>
         /// 更新绘制表情曲线
@@ -1653,7 +1663,8 @@ namespace OpenUtauMobile.ViewModels
         /// </summary>
         public void EndDrawExpression()
         {
-            DocManager.Inst.EndUndoGroup();
+            _drawExpressionUndoScope?.Dispose();
+            _drawExpressionUndoScope = null;
         }
 
         /// <summary>
@@ -1746,7 +1757,7 @@ namespace OpenUtauMobile.ViewModels
             }
             _lastExpTick = (int)PianoRollTransformer.ActualToLogicalX(point.X) - EditingPart.position;
             //_lastExpValue = (int)(_editingExpressionDescriptor.max - point.Y * (_editingExpressionDescriptor.max - _editingExpressionDescriptor.min) / (float)canvasHeight / (float)Density);
-            DocManager.Inst.StartUndoGroup();
+            _resetExpressionUndoScope = new UndoScope();
         }
         /// <summary>
         /// 更新重置表情曲线
@@ -1844,7 +1855,8 @@ namespace OpenUtauMobile.ViewModels
         /// </summary>
         public void EndResetExpression()
         {
-            DocManager.Inst.EndUndoGroup();
+            _resetExpressionUndoScope?.Dispose();
+            _resetExpressionUndoScope = null;
         }
         public void CopySelectedNotes()
         {
