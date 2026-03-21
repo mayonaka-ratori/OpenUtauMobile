@@ -167,10 +167,10 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
     private const float PIANO_KEYS_CACHE_MARGIN = 1.0f;
     #endregion
 
-    #region PianoRollTickBackground ビットマップキャッシュ（P2-5c）
+    #region PianoRollTickBackground ビットマップキャッシュ（P2-5c / P2-D1）
     private SKBitmap? _pianoRollTickBgCacheBitmap;
     private SKCanvas? _pianoRollTickBgCacheCanvas;
-    private SKImage? _pianoRollTickBgCacheImage;
+    // Opt-D: SKImage 中間コピー削除 — DrawBitmap(srcRect, dstRect) で直接描画
     private float _pianoRollTickBgCacheOriginPanX;
     private float _pianoRollTickBgCachedZoomX;
     private int _pianoRollTickBgCachedSnapDiv;
@@ -2204,20 +2204,25 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         float currentPanX = transformer.PanX;
         float currentZoomX = transformer.ZoomX;
         int currentSnapDiv = _viewModel.PianoRollSnapDiv;
-        bool cacheInvalid =
+        // Opt-A: MISS を 2 段階に分離
+        //   Tier 1 (needsFullRebuild): サイズ変更 / ズーム変更 / スナップ変更 → Dispose + new SKBitmap
+        //   Tier 2 (needsPanRefresh): パンドリフトのみ → 既存ビットマップを再利用して Clear + Redraw
+        int expectedBitmapWidth = (int)(screenWidth * (1 + 2 * PIANO_ROLL_TICK_BG_CACHE_MARGIN));
+        int expectedBitmapHeight = (int)screenHeight;
+        bool needsFullRebuild =
             _pianoRollTickBgCacheBitmap == null ||
-            _pianoRollTickBgCacheBitmap.Width != (int)(screenWidth * (1 + 2 * PIANO_ROLL_TICK_BG_CACHE_MARGIN)) ||
-            _pianoRollTickBgCacheBitmap.Height != (int)screenHeight ||
+            _pianoRollTickBgCacheBitmap.Width != expectedBitmapWidth ||
+            _pianoRollTickBgCacheBitmap.Height != expectedBitmapHeight ||
             _pianoRollTickBgCachedZoomX != currentZoomX ||
-            _pianoRollTickBgCachedSnapDiv != currentSnapDiv ||
-            Math.Abs(currentPanX - _pianoRollTickBgCacheOriginPanX) > screenWidth * PIANO_ROLL_TICK_BG_CACHE_MARGIN;
-        if (cacheInvalid)
+            _pianoRollTickBgCachedSnapDiv != currentSnapDiv;
+        bool needsPanRefresh = !needsFullRebuild
+            && Math.Abs(currentPanX - _pianoRollTickBgCacheOriginPanX) > screenWidth * PIANO_ROLL_TICK_BG_CACHE_MARGIN;
+        if (needsFullRebuild)
         {
+            // Tier 1: ビットマップ破棄・再確保（サイズ/ズーム/スナップ変更時のみ）
             _pianoRollTickBgCacheCanvas?.Dispose();
             _pianoRollTickBgCacheBitmap?.Dispose();
-            int bitmapWidth = (int)(screenWidth * (1 + 2 * PIANO_ROLL_TICK_BG_CACHE_MARGIN));
-            int bitmapHeight = (int)screenHeight;
-            _pianoRollTickBgCacheBitmap = new SKBitmap(bitmapWidth, bitmapHeight);
+            _pianoRollTickBgCacheBitmap = new SKBitmap(expectedBitmapWidth, expectedBitmapHeight);
             _pianoRollTickBgCacheCanvas = new SKCanvas(_pianoRollTickBgCacheBitmap);
             _pianoRollTickBgCacheCanvas.Clear(SKColors.Transparent);
             float cachePanX = currentPanX - screenWidth * PIANO_ROLL_TICK_BG_CACHE_MARGIN;
@@ -2225,22 +2230,31 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                 .PostConcat(SKMatrix.CreateTranslation(cachePanX, transformer.PanY));
             _pianoRollTickBgCacheCanvas.SetMatrix(cacheMatrix);
             DrawPianoRollGridToCanvas(_pianoRollTickBgCacheCanvas);
-            _pianoRollTickBgCacheImage?.Dispose();
-            _pianoRollTickBgCacheImage = SKImage.FromBitmap(_pianoRollTickBgCacheBitmap);
             _pianoRollTickBgCacheOriginPanX = currentPanX;
             _pianoRollTickBgCachedZoomX = currentZoomX;
             _pianoRollTickBgCachedSnapDiv = currentSnapDiv;
         }
-        // キャッシュビットマップをオフセット描画
+        else if (needsPanRefresh)
+        {
+            // Tier 2: ビットマップ再利用（パンドリフトのみ — 38MB アロケーション不要）
+            _pianoRollTickBgCacheCanvas!.Clear(SKColors.Transparent);
+            float cachePanX = currentPanX - screenWidth * PIANO_ROLL_TICK_BG_CACHE_MARGIN;
+            var cacheMatrix = SKMatrix.CreateScale(currentZoomX, transformer.ZoomY)
+                .PostConcat(SKMatrix.CreateTranslation(cachePanX, transformer.PanY));
+            _pianoRollTickBgCacheCanvas.SetMatrix(cacheMatrix);
+            DrawPianoRollGridToCanvas(_pianoRollTickBgCacheCanvas);
+            _pianoRollTickBgCacheOriginPanX = currentPanX;
+        }
+        // Opt-D: DrawBitmap(srcRect, dstRect) で描画 — SKImage.FromBitmap コピー（38MB）不要
         canvas.Clear(SKColors.Transparent);
         float offsetX = (currentPanX - _pianoRollTickBgCacheOriginPanX) + screenWidth * PIANO_ROLL_TICK_BG_CACHE_MARGIN;
         {
             float srcLeft = Math.Max(0, offsetX);
-            float srcRight = Math.Min(_pianoRollTickBgCacheImage!.Width, offsetX + screenWidth);
+            float srcRight = Math.Min(_pianoRollTickBgCacheBitmap!.Width, offsetX + screenWidth);
             float dstLeft = srcLeft - offsetX;
             var srcRect = new SKRect(srcLeft, 0, srcRight, screenHeight);
             var dstRect = new SKRect(dstLeft, 0, dstLeft + (srcRight - srcLeft), screenHeight);
-            canvas.DrawImage(_pianoRollTickBgCacheImage, srcRect, dstRect);
+            canvas.DrawBitmap(_pianoRollTickBgCacheBitmap, srcRect, dstRect, null);
         }
         // シャドウを動的描画（毎フレーム: 最大 2 DrawRect calls — 非常に低コスト）
         DrawPianoRollShadow(canvas, screenWidth, screenHeight, currentPanX, currentZoomX);
@@ -2258,7 +2272,10 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
     /// </summary>
     private void DrawPianoRollGridToCanvas(SKCanvas canvas)
     {
-        _pianoRollBarFont.Typeface = ObjectProvider.NotoSansCJKscRegularTypeface;
+        // Opt-E: Typeface 変更ガード（不要な割り当てを回避）
+        var targetTypeface = ObjectProvider.NotoSansCJKscRegularTypeface;
+        if (_pianoRollBarFont.Typeface != targetTypeface)
+            _pianoRollBarFont.Typeface = targetTypeface;
         var project = OpenUtau.Core.DocManager.Inst.Project;
         int snapUnit = project.resolution * 4 / _viewModel.PianoRollSnapDiv;
         while (snapUnit < ViewConstants.MinTicklineWidth)
@@ -2275,13 +2292,18 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         int barTick = project.timeAxis.BarBeatToTickPos(bar, 0);
         SKMatrix originalMatrix = canvas.TotalMatrix;
         canvas.ResetMatrix();
+        // Opt-C: ThemeColorsManager.Current.* をループ前にローカルキャッシュ（660+ プロパティチェーン呼び出し/MISS を排除）
+        var barlinePaint = ThemeColorsManager.Current.PianoRollBarlinePaint;
+        var barlineHeadPaint = ThemeColorsManager.Current.PianoRollBarlineHeadPaint;
+        var beatlinePaint = ThemeColorsManager.Current.PianoRollBeatlinePaint;
+        var beatlineHeadPaint = ThemeColorsManager.Current.PianoRollBeatlineHeadPaint;
         while (barTick <= rightTick)
         {
             float x = (float)Math.Round((double)barTick) + 0.5f;
             float y = 20 * (float)_viewModel.Density;
             canvas.DrawText((bar + 1).ToString(), (x + 10) * originalMatrix.ScaleX + originalMatrix.TransX, 30, _pianoRollBarFont, _pianoRollBarTextPaint);
-            canvas.DrawLine(new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, y), new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, bottom + 0.5f), ThemeColorsManager.Current.PianoRollBarlinePaint);
-            canvas.DrawLine(new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, 0), new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, y), ThemeColorsManager.Current.PianoRollBarlineHeadPaint);
+            canvas.DrawLine(new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, y), new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, bottom + 0.5f), barlinePaint);
+            canvas.DrawLine(new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, 0), new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, y), barlineHeadPaint);
             UTimeSignature timeSig = project.timeAxis.TimeSignatureAtBar(bar);
             int nextBarTick = project.timeAxis.BarBeatToTickPos(bar + 1, 0);
             int ticksPerBeat = project.resolution * 4 * timeSig.beatPerBar / timeSig.beatUnit;
@@ -2304,12 +2326,12 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                     y = 20 * (float)_viewModel.Density;
                     if (snapRemainingTicks == 0)
                     {
-                        canvas.DrawLine(new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, y), new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, bottom + 0.5f), ThemeColorsManager.Current.PianoRollBeatlinePaint);
-                        canvas.DrawLine(new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, 0), new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, y), ThemeColorsManager.Current.PianoRollBeatlineHeadPaint);
+                        canvas.DrawLine(new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, y), new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, bottom + 0.5f), beatlinePaint);
+                        canvas.DrawLine(new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, 0), new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, y), beatlineHeadPaint);
                     }
                     else
                     {
-                        canvas.DrawLine(new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, y), new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, bottom + 0.5f), ThemeColorsManager.Current.PianoRollBeatlinePaint);
+                        canvas.DrawLine(new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, y), new SKPoint(x * originalMatrix.ScaleX + originalMatrix.TransX, bottom + 0.5f), beatlinePaint);
                     }
                 }
             }
@@ -2736,8 +2758,7 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         _pianoRollTickBgCacheCanvas = null;
         _pianoRollTickBgCacheBitmap?.Dispose();
         _pianoRollTickBgCacheBitmap = null;
-        _pianoRollTickBgCacheImage?.Dispose();
-        _pianoRollTickBgCacheImage = null;
+        // _pianoRollTickBgCacheImage: Opt-D で削除済み（SKImage コピー不要）
         _pianoRollBarTextPaint.Dispose();
         _pianoRollBarFont.Dispose();
         _pianoRollShadowPaint.Dispose();

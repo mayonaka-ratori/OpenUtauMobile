@@ -31,6 +31,7 @@
 - [x] **[P2-5a]** PlaybackTickBackgroundCanvas ビットマップキャッシュ (水平方向) — 完了 2026-03-18
 - [x] **[P2-5b]** PianoKeysCanvas ビットマップキャッシュ (垂直方向) — 完了 2026-03-18
 - [x] **[P2-5c]** PianoRollTickBackgroundCanvas ビットマップキャッシュ + SKImage最適化 — 完了 2026-03-19
+- [x] **[P2-D1]** PianoRollTickBackgroundCanvas MISS コスト最適化 (Opt-A/C/D/E) — 完了 2026-03-21
 - [ ] **[P2-6]** ExpressionCanvas SKPath バッチ化 + ThemeColors ローカルキャッシュ
 - [ ] **[P2-7]** PanX/PanY ダーティフラグ分離 (InvalidateSurface 選択的呼び出し)
 
@@ -124,6 +125,33 @@
 - Cache margin 0.5 テスト → MISS 頻度 4→9回、slow rate 8.9%→14.6% に悪化 → 1.0 に revert
 - 診断ログ [PianoRollTickBgCache] / [PRTickBg] 削除 (検証完了)
 - コミット: `633177a`
+
+---
+
+## Stage D: PianoRollTickBg MISS 最適化 (2026-03-21)
+
+### P2-D1: PianoRollTickBackgroundCanvas MISS コスト最適化
+
+**対象**: `EditPage.xaml.cs` — `PianoRollTickBackgroundCanvas_PaintSurface` + `DrawPianoRollGridToCanvas`
+
+**Opt-A: MISS を 2 段階に分離 (L2207-2247)**
+- Tier 1 (needsFullRebuild): サイズ/ズーム/スナップ変更時のみ Dispose + new SKBitmap
+- Tier 2 (needsPanRefresh): パンドリフトのみの場合、既存ビットマップを Clear + Redraw で再利用
+- 効果: パンスクロール時の 38MB GC アロケーション + STW-GC を排除
+
+**Opt-C: ThemeColorsManager.Current.*Paint ローカルキャッシュ (L2295-2299)**
+- ループ前に 4 ペイント参照をローカル変数へキャッシュ
+- `barlinePaint`, `barlineHeadPaint`, `beatlinePaint`, `beatlineHeadPaint`
+- 効果: MISS ごとに 660+ 回のプロパティチェーン呼び出しを排除
+
+**Opt-D: SKImage.FromBitmap → DrawBitmap(srcRect, dstRect) (L2257)**
+- `_pianoRollTickBgCacheImage` フィールド削除
+- `SKImage.FromBitmap()` (38MB memcpy) を完全除去
+- `canvas.DrawImage(image, srcRect, dstRect)` → `canvas.DrawBitmap(bitmap, srcRect, dstRect, null)` に置換
+- 効果: MISS 時ピークメモリ 76MB → 38MB、`SKImage.FromBitmap` コスト削除
+
+**Opt-E: Typeface 変更ガード (DrawPianoRollGridToCanvas L2275-2278)**
+- `_pianoRollBarFont.Typeface = ...` → `if (... != targetTypeface) set` 形式に変更
 
 ---
 
@@ -263,6 +291,7 @@
 | 2026-03-20 | GestureProcessor.ForceReset() を安全網として追加 (BUG-C) | Android システムジェスチャーが Released/Cancelled を消費した場合、_activePoints にゴミエントリが残りパン不能になる。OnAppearing で全プロセッサを ForceReset() することで復帰を保証 |
 | 2026-03-20 | HandleTouchDown にステールポイントクリーンアップを追加 (BUG-C) | GestureState.None かつ _activePoints に残存エントリがある場合、新しい TouchDown を受け取った時点でクリア。システムジェスチャー割り込み後の「ゴーストタッチ状態」を即座に解消 |
 | 2026-03-21 | Stage C 完了 — ExpressionCanvas 可視化修正、Profiler try/finally カバレッジ保証、per-frame LINQ アロケーション排除 | P2-C1: ExpHeight=150 で BoundExp.Height=100px を確保。P2-C1: 5 PaintSurface メソッドに try/finally 追加で Profiler.End() 漏れを根絶。P2-C2: DrawRectangle/DrawLyrics 廃止メソッド 104 行削除。P2-C3: DrawNotes×2 + DrawWaveform×2 + TrackCanvas×1 の LINQ → foreach 置換で GC ガベージ削減 |
+| 2026-03-21 | P2-D1 完了 — PianoRollTickBg MISS コスト 4 最適化 (Opt-A/C/D/E) | Opt-A: パンドリフト MISS を 2 段階化してビットマップ再利用。Opt-C: ループ前ペイントキャッシュで 660+ プロパティチェーン削減。Opt-D: SKImage.FromBitmap 削除で 38MB memcpy と _pianoRollTickBgCacheImage フィールド除去、DrawBitmap(srcRect, dstRect) に置換。Opt-E: Typeface 変更ガード追加。SkiaSharp 3.119.0 で DrawBitmap(SKBitmap, SKRect, SKRect, SKPaint?) オーバーロード利用可能を API XML で確認済み |
 
 ---
 
@@ -319,10 +348,8 @@
 ### ~~ExpressionCanvas Profiler Missing (P2-INV-2)~~ → P2-C1 で対処済み
 - ExpHeight 修正 + try/finally で解決。次回計測で Profiler 出現を確認予定。
 
-### PianoRollTickBg MISS Cost (P2-INV-3)
-- Current MISS cost: ~50ms (27MB bitmap realloc + 156 draw calls + 12 DrawText)
-- Optimization A: Reuse bitmap when size unchanged (save 8-15ms)
-- Optimization C: DrawPoints batch (save 4-8ms)
-- Optimization E: SKImage.FromPixels (save 4-8ms)
-- Combined target: MISS cost <20ms
-- Priority: after Stage C cleanup
+### ~~PianoRollTickBg MISS Cost (P2-INV-3)~~ → P2-D1 で対処済み (2026-03-21)
+- Opt-A: パンドリフト MISS で 38MB アロケーション → ビットマップ再利用 (Clear+Redraw)
+- Opt-C: ThemeColorsManager.Current.*Paint ループ前ローカルキャッシュ (660+ チェーン呼び出し削除)
+- Opt-D: SKImage.FromBitmap (38MB コピー) → DrawBitmap(srcRect, dstRect) 直接描画
+- Opt-E: _pianoRollBarFont.Typeface 変更ガード追加
