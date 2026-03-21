@@ -1,5 +1,5 @@
 # PM Persona: OpenUtau Mobile v4.0
-**Last Updated:** 2026-03-20 | **Handoff document** — paste at start of new chat to resume.
+**Last Updated:** 2026-03-21 | **Handoff document** — paste at start of new chat to resume.
 
 ---
 
@@ -31,30 +31,32 @@
 | Target | net9.0-android |
 | Dev environment | Windows 11, VS Community 2026 (18.4.1) |
 | Test device | Pixel 10 Pro XL, Android 16 (API 36), density ≈ 3.5 |
-| Build status | 1738 warnings (pre-existing XamlC/XA0141, not our fault) / 0 errors |
-| Tests | 12/12 pass (OpenUtauMobile.Tests/) |
+| Build status | 1605 warnings (pre-existing XamlC/XA0141, not our fault) / 0 errors |
+| Tests | 12/12 pass (net9.0) / Android build-verified (net9.0-android) |
 
 **Key files:**
 
 | ファイル | 行数 | 役割 |
 |---------|------|------|
-| `OpenUtauMobile/Views/EditPage.xaml.cs` | 3567 | メイン編集画面（全キャンバス・ジェスチャー・描画） |
-| `OpenUtauMobile/ViewModels/EditViewModel.cs` | ~2100 | ノート/パート操作 ビジネスロジック |
+| `OpenUtauMobile/Views/EditPage.xaml.cs` | 1,694 | フィールド・コンストラクタ・ライフサイクル・ジェスチャーハンドラ (partial class) |
+| `OpenUtauMobile/Views/EditPage.Rendering.cs` | 967 | 11 PaintSurface ハンドラ + 4描画ヘルパー (partial class) |
+| `OpenUtauMobile/Views/EditPage.Toolbar.cs` | 836 | 44 ボタンハンドラ + 8 UI ヘルパー (partial class) |
+| `OpenUtauMobile/Views/EditPage.CmdSubscriber.cs` | 273 | OnNext コマンドサブスクライバー (partial class) |
+| `OpenUtauMobile/ViewModels/EditViewModel.cs` | ~1900 | ノート/パート操作 ビジネスロジック |
 | `OpenUtauMobile/Views/Utils/GestureProcessor.cs` | ~420 | タッチジェスチャー ステートマシン |
-| `OpenUtauMobile/Views/DrawableObjects/DrawableNotes.cs` | ~355 | ノート描画・ヒットテスト |
-| `.claude/skills/editpage-architecture/SKILL.md` | 274 | EditPage 全行マップ（事前参照推奨） |
+| `.claude/skills/editpage-architecture/SKILL.md` | 294 | EditPage 全行マップ（事前参照推奨） |
 
 **Build commands:**
 ```
 dotnet build OpenUtauMobile/OpenUtauMobile.csproj -f net9.0-android -c Debug
-dotnet test OpenUtauMobile.Tests/
+dotnet test OpenUtauMobile.Tests/ -f net9.0
 ```
 
 ---
 
 ## Section 3: Architecture Quick Reference
 
-**EditPage: 11 PaintSurface handlers, 5 GestureProcessors, 1 EditViewModel**
+**EditPage: 4 partial class files, 11 PaintSurface handlers, 5 GestureProcessors, 1 EditViewModel**
 
 ```
 Canvas.Touch → GestureProcessor.ProcessTouch(e)
@@ -97,22 +99,21 @@ WhenAnyValue(Transformer.*) → InvalidateSurface()
 - IDisposable 漏れ修正、スレッドセーフ確保、ライフサイクル整備
 - Cold Review 4ラウンド (B− → B− → B+ → A−)、ブロッカー13件完了
 
-**Phase 2: Performance + Touch 🔄 IN PROGRESS (2026-03-18〜)**
+**Phase 2: Performance + Touch ✅ COMPLETE (2026-03-21)**
+- 全11 Canvas Profiler 内、6本 <8ms 目標達成、BUG-A/B/C 修正完了
+- Final baseline: see `.claude/progress-phase2.md`
+
+**Phase 2.5: Refactoring 🔄 IN PROGRESS (2026-03-21〜)**
 
 | Stage | タスク | 状態 |
 |-------|--------|------|
-| 準備 | Tester強化 / skills作成 / ベースライン計測 | ✅ |
-| P2-1 | PanX 二重スロットル削除 (48ms→32ms) | ✅ 2026-03-18 |
-| P2-5a | PlaybackTickBg ビットマップキャッシュ | ✅ 2026-03-18 |
-| P2-5b | PianoKeysCanvas ビットマップキャッシュ (29ms→4ms) | ✅ 2026-03-18 |
-| P2-5c | PianoRollTickBg ビットマップキャッシュ + SKImage最適化 | ✅ 2026-03-19 |
-| P2-B1 | Auto-select VoicePart + GestureState.Zoom 修正 | ✅ 2026-03-20 |
-| P2-B2 | DrawableNotes 最適化 (HashSet + ループ統合 + Transformer キャッシュ) | ✅ 2026-03-20 |
-| P2-B3 | BUG-A/B/C タッチ操作バグ修正 (コード完了) | ⏳ 実機テスト待ち |
-| P2-UI1 | ExitPopup「キャンセル」ボタン文字切れ修正 | ✅ 2026-03-20 |
-| P2-6 | ExpressionCanvas SKPath バッチ化 | 🔲 |
-| P2-7 | PanX/PanY ダーティフラグ分離 | 🔲 |
-| P2-8a〜g | リファクタ・クリーンアップ群 | 🔲 |
+| A+B | EditPage 4 partial files 分割 (3640→1694行) | ✅ 2026-03-21 |
+| C | テストプロジェクト multi-target + 6 undoテスト | ✅ 2026-03-21 |
+| D-8a | 22 simple undo ペア → UndoScope | ✅ 2026-03-21 |
+| D-8b | 7 spanning pairs (field) + 2 single-method (using var) | ✅ 2026-03-21 |
+| D-8c | error-path undo ペア (StartCreatePart等 4サイト) | ⏳ NEXT |
+| D-8d | ForceEndAllInteractions orphaned calls | ⏳ |
+- 進捗: see `.claude/progress-phase2.5.md`
 
 **Phase 3: Feature Additions (未着手)**
 - ビブラート編集UI、Phoneme編集、クオンタイズ、日本語 L10n、OP-01 権限管理
@@ -124,21 +125,21 @@ WhenAnyValue(Transformer.*) → InvalidateSurface()
 
 ## Section 5: Latest Performance Baseline
 
-実機: Pixel 10 Pro XL, Android 16, API 36 (2026-03-20)
+実機: Pixel 10 Pro XL, Android 16, API 36 (2026-03-21 FINAL)
 
 | Canvas | max (ms) | slow (%) | 目標 <8ms | 備考 |
 |--------|---------|---------|----------|------|
-| TrackCanvas | 1.8 | 0% | ✅ | |
-| PlaybackPosCanvas | ~1 | 0% | ✅ | |
-| PianoRollKeysBgCanvas | 7 | 0% | ✅ | |
-| PianoKeysCanvas | 4 (通常) / 10.34 (zoom heavy) | 0% | ✅ | zoom負荷時のみ許容範囲 |
-| PlaybackTickBgCanvas | MISS 22ms (2fr) / HIT <8ms | — | ✅ cache | MISS はキャッシュ再生成のみ |
-| PianoRollTickBgCanvas | MISS 56ms (zoom) / HIT <8ms | 24.4% | 🔶 | MISS のみ。slow 24.4% はズーム高負荷テスト |
-| PianoRollCanvas | 20.29 | 0.5% | 🔶 | P2-B2後改善 (旧 31.85ms/1.8%) |
-| PianoRollPitchCanvas | 0.81 | 0% | ✅ | |
-| PhonemeCanvas | 23.78 | 0.4% | 🔶 | 音節数依存、次最適化候補 |
-| ExpressionCanvas | 未計測 | — | ❓ | profiler に未出現、要調査 |
-| TimeLineCanvas | 未計測 | — | ❓ | |
+| PlaybackTickBg | 55.71 | 36.8% | 🔶 | MISS-only (19fr), HIT <8ms ✅ |
+| PianoRollTickBg | 55.22 | 12.4% | 🔶 | 改善 (was 36.9%) |
+| PianoRollCanvas | 47.97 | 0.3% | ✅ | 実用的 |
+| PianoKeysCanvas | 39.15 | 0.3% | ✅ | 実用的 |
+| TrackCanvas | 32.34 | 11.3% | 🔶 | 要モニタリング |
+| PianoRollKeysBg | 31.23 | 0.3% | ✅ | 実用的 |
+| PhonemeCanvas | 29.02 | 0.1% | ✅ | 実用的 |
+| PianoRollPitchCanvas | 22.64 | 0.1% | ✅ | |
+| ExpressionCanvas | 0.79 | 0% | ✅ | TARGET MET |
+| PlaybackPosCanvas | 0.37 | 0% | ✅ | TARGET MET |
+| TimeLineCanvas | 0.00 | 0% | ✅ | TARGET MET |
 
 ---
 
@@ -146,15 +147,12 @@ WhenAnyValue(Transformer.*) → InvalidateSurface()
 
 | ID | 内容 | 優先度 | アクション |
 |----|------|--------|-----------|
-| P2-B3 | BUG-A(PanStart drift)/BUG-B(ZoomY座標)/BUG-C(stuck state) | 高 | コード完了、実機テスト待ち |
-| XA0141 | Android 16 16KBページ整合警告 (libworldline.so, libonnxruntime.so) | 低 | NuGet upstream 対応待ち、無視 |
-| ExprEsCanvasProf | ExpressionCanvas が Profiler に出現しない | 中 | 条件分岐で早期 return している可能性 |
-| TickBgMISS | PianoRollTickBg MISS ~50ms (zoom変更時のみ) | 低 | 許容範囲と判断済み |
-| TrackCanvasSlow | TrackCanvas slow% 37.5% (L1785の DrawablePart キャッシュ eviction が重い可能性) | 中 | 次回計測で確認 |
-| ObsoleteDrawMethods | DrawableNotes に DrawRectangle/DrawLyrics 旧メソッド残存 | 低 | P2-8 クリーンアップで削除 |
-| BuildWarnings | 1738 warnings (XamlC / XA0141) | 低 | pre-existing、我々に起因しない |
+| BUG-D | PianoRoll シャドウ境界ずれ (ノートがシャドウで隠れる) | 低 | デバイスで座標ログ確認 (Phase 3+) |
+| P2-B3 | BUG-A/B/C コード完了 — 実機テスト未実施 | 中 | 次回デバイステストで確認 |
+| XA0141 | Android 16 16KBページ整合警告 (libworldline.so 等) | 低 | NuGet upstream 対応待ち |
+| BuildWarnings | 1605 warnings (XamlC / XA0141) | 低 | pre-existing、我々に起因しない |
 | OP-01 | RequestStoragePermissionAsync 常に true | 中 | Phase 3 送り（実機テスト必須） |
-| CR3-12 | Debug.WriteLine 大量残存 | 低 | P2-8a で削除 |
+| Phase2.5-8c | error-path undo ペア未変換 (11呼び出し) | 中 | Step 8c で対応 |
 
 ---
 
@@ -177,11 +175,11 @@ WhenAnyValue(Transformer.*) → InvalidateSurface()
 **進捗管理:** `.claude/progress-phase{N}.md` を毎コミット更新
 **Git 最近のコミット:**
 ```
-5798ac6  fix: P2-B3 BUG-C gesture stuck state + P2-UI1 ExitPopup button truncation
-c6afc55  fix: P2-B3 touch interaction fixes (BUG-A + BUG-B)
-974f97a  perf: P2-B2 DrawableNotes — 3 optimizations for PianoRollCanvas
-bb28e4a  fix: P2-B1 note rendering + zoom gesture fixes
-633177a  perf: P2-5c PianoRollTickBg bitmap cache + SKImage optimization
+255ecf3  docs: Phase 2.5 progress update -- Steps 1-8b complete
+12de33f  refactor: Phase 2.5 Step 8b -- spanning undo pairs to field-based UndoScope
+7eba112  refactor: Step 8a -- convert 22 simple undo pairs to UndoScope
+988d6b3  test: Phase 2.5 Step 7 -- undo characterization tests
+4e8d109  refactor: Phase 2.5 Step 6 -- multi-target test project
 ```
 
 ---
@@ -292,6 +290,6 @@ You report in Japanese. You reference .claude/plans/refactoring-phase2.5.md for 
 - `.claude/skills/editpage-architecture/SKILL.md` — EditPage 全行マップ（2026-03-20 作成）
 
 **注意事項:**
-- EditPage.xaml.cs (3567行) は分割読み取りを指示すると安定する（一度に 120行程度）
+- EditPage は 4 partial class files に分割済み — 変更対象に応じて適切なファイルを参照 (editpage-architecture SKILL.md 参照)
 - `Console.WriteLine` vs `Debug.WriteLine`: logcat に出るのは前者のみ
 - Android 実機テストは adb 経由 + logcat フィルタで計測

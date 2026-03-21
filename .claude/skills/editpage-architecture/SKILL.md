@@ -15,7 +15,7 @@
 | EditPage.Toolbar.cs | 836 | 44 button handlers + 8 UI helpers (Save, AttemptExit, etc.) |
 | EditPage.CmdSubscriber.cs | 273 | OnNext command subscriber (ICmdSubscriber) |
 | EditModes.cs | 43 | TrackEditMode, NoteEditMode, ExpressionEditMode, SelectionMode enums |
-| UndoScope.cs | 33 | IDisposable undo group guard (not yet used) |
+| UndoScope.cs | 33 | IDisposable undo group guard (31サイトで使用中 — Phase 2.5 Step 8a/8b) |
 
 ---
 
@@ -190,7 +190,7 @@
 | `DrawableParts` | 5 | read/write |
 | `EditingNotes.*` | 4 | read/call |
 | `Playing` | 10 | read/write |
-| `StartUndoGroup` / `EndUndoGroup` (DocManager経由) | 48 | call |
+| `StartUndoGroup` / `EndUndoGroup` (DocManager経由) | 13残存 (Phase 2.5 8a/8b で31変換済み) | call |
 | `StartMoveNotes` / `StartResizeNotes` | 2 | call |
 | `UpdateMoveNotes` / `UpdateResizeNotes` | 2 | call |
 
@@ -265,6 +265,19 @@ EditPage
 | `OnAppearing` (L2630–2648) | `ForceReset()` × 5 + `ForceEndAllInteractions()` 追加 | `5798ac6` | P2-B3 BUG-C: アプリ復帰時に全ジェスチャーをリセット |
 | `Dispose()` (L2664–2742) | 3種 SKBitmap/SKImage Dispose ブロック追加 (P2-5a/5b/5c) | `633177a` | キャッシュリソースリーク防止 |
 
+## Section 8: Phase 2.5 変更ログ (2026-03-21)
+
+| ファイル | 変更内容 | コミット |
+|---------|---------|---------|
+| `EditPage.Rendering.cs` (NEW, 967行) | 11 PaintSurface ハンドラ + 4描画ヘルパーを xaml.cs から抽出 | `d79e3af` |
+| `EditPage.Toolbar.cs` (NEW, 836行) | 44 ボタンハンドラ + 8 UIヘルパーを xaml.cs から抽出 | `4642b26` |
+| `EditPage.CmdSubscriber.cs` (NEW, 273行) | OnNext (ICmdSubscriber) を xaml.cs から抽出 | `fc41d47` |
+| `EditModes.cs` (NEW, 43行) | TrackEditMode/NoteEditMode/ExpressionEditMode/SelectionMode を EditViewModel から抽出 | `47db2c1` |
+| `UndoScope.cs` (NEW, 33行) | IDisposable undo group guard class | `3742545` |
+| `EditViewModel.cs` | 31 StartUndoGroup/EndUndoGroup → UndoScope 変換 (8a: 22 simple, 8b: 9 spanning) | `7eba112`, `12de33f` |
+| `EditPage.Toolbar.cs` | 8 undo pair → UndoScope 変換 (8a) | `7eba112` |
+| `EditLyricsPopup.xaml.cs` | 2 undo pair → UndoScope 変換 (8a) | `7eba112` |
+
 ---
 
 ## クイックリファレンス: よく修正が必要な箇所
@@ -283,7 +296,8 @@ EditPage
 7. OnAppearing に `ForceReset()` 追加 (L2636–2647 パターン)
 
 ### DocManager コマンドを新規追加したい場合
-- `OnNext()` (L1359) に `else if (cmd is NewCommand)` を追加
+- `OnNext()` は `EditPage.CmdSubscriber.cs` に移動済み (Phase 2.5 Step 5)
+- `else if (cmd is NewCommand)` を OnNext メソッドに追加
 - 対応する `InvalidateSurface()` と ViewModel 更新を記述
 
 ### ビットマップキャッシュの実装パターン
