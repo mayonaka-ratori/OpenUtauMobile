@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Maui.Views;
 using OpenUtau.Core;
 using OpenUtau.Core.Ustx;
+using OpenUtauMobile.Utils;
 using OpenUtauMobile.Utils.Messages;
 using OpenUtauMobile.ViewModels.Controls;
 using System.Diagnostics;
@@ -29,17 +30,15 @@ public partial class EditLyricsPopup : Popup
 
     private void ButtonConfirm_Clicked(object sender, EventArgs e)
     {
-        DocManager.Inst.StartUndoGroup();
+        using var undo = new UndoScope();
         DocManager.Inst.ExecuteCmd(new ChangeNoteLyricCommand(Part, Note, EntryLyrics.Text));
-        DocManager.Inst.EndUndoGroup();
         CloseAsync(null);
     }
 
     private void ButtonNext_Clicked(object sender, EventArgs e)
     {
-        DocManager.Inst.StartUndoGroup();
+        using var undo = new UndoScope();
         DocManager.Inst.ExecuteCmd(new ChangeNoteLyricCommand(Part, Note, EntryLyrics.Text));
-        DocManager.Inst.EndUndoGroup();
         UNote? nextNote = SeekNextNote(Part, Note);
         if (nextNote == null)
         {

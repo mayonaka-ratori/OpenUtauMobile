@@ -718,10 +718,8 @@ namespace OpenUtauMobile.ViewModels
                 TrackColor = ViewConstants.TrackMauiColors.ElementAt(ObjectProvider.Random.Next(ViewConstants.TrackMauiColors.Count)).Key,
             };
             // 开启撤销组
-            DocManager.Inst.StartUndoGroup();
+            using var undo = new UndoScope();
             DocManager.Inst.ExecuteCmd(new AddTrackCommand(DocManager.Inst.Project, track));
-            // 结束撤销组
-            DocManager.Inst.EndUndoGroup();
         }
 
         internal void StartResizePart(UPart part, SKPoint sKPoint)
@@ -844,9 +842,8 @@ namespace OpenUtauMobile.ViewModels
             {
                 return false;
             }
-            DocManager.Inst.StartUndoGroup();
+            using var undo = new UndoScope();
             DocManager.Inst.ExecuteCmd(new MoveTrackCommand(DocManager.Inst.Project, track, true));
-            DocManager.Inst.EndUndoGroup();
             Tracks = [.. DocManager.Inst.Project.tracks];
             return true;
         }
@@ -862,9 +859,8 @@ namespace OpenUtauMobile.ViewModels
             {
                 return false;
             }
-            DocManager.Inst.StartUndoGroup();
+            using var undo = new UndoScope();
             DocManager.Inst.ExecuteCmd(new MoveTrackCommand(DocManager.Inst.Project, track, false));
-            DocManager.Inst.EndUndoGroup();
             Tracks = [.. DocManager.Inst.Project.tracks];
             return true;
         }
@@ -1066,12 +1062,11 @@ namespace OpenUtauMobile.ViewModels
         {
             if (SelectedNotes.Count > 0 && EditingPart is UVoicePart part)
             {
-                DocManager.Inst.StartUndoGroup();
+                using var undo = new UndoScope();
                 List<UNote> notesToRemove = SelectedNotes.ToList();
                 DocManager.Inst.ExecuteCmd(new RemoveNoteCommand(part, notesToRemove));
                 SelectedNotes.Clear();
                 HandleSelectedNotesChanged();
-                DocManager.Inst.EndUndoGroup();
             }
         }
 
@@ -1314,16 +1309,14 @@ namespace OpenUtauMobile.ViewModels
 
         public void AddTempoSignature(int tick, double bpm)
         {
-            DocManager.Inst.StartUndoGroup();
+            using var undo = new UndoScope();
             DocManager.Inst.ExecuteCmd(new AddTempoChangeCommand(DocManager.Inst.Project, tick, bpm));
-            DocManager.Inst.EndUndoGroup();
         }
 
         internal void AddTimeSignature(int bar, int barPerBeat, int barUnit)
         {
-            DocManager.Inst.StartUndoGroup();
+            using var undo = new UndoScope();
             DocManager.Inst.ExecuteCmd(new AddTimeSigCommand(DocManager.Inst.Project, bar, barPerBeat, barUnit));
-            DocManager.Inst.EndUndoGroup();
         }
 
         public void ImportAudio(string file)
@@ -1342,10 +1335,9 @@ namespace OpenUtauMobile.ViewModels
                 }
                 int trackNo = project.tracks.Count;
                 part.trackNo = trackNo;
-                DocManager.Inst.StartUndoGroup();
+                using var undo = new UndoScope();
                 DocManager.Inst.ExecuteCmd(new AddTrackCommand(project, new UTrack(project) { TrackNo = trackNo }));
                 DocManager.Inst.ExecuteCmd(new AddPartCommand(project, part));
-                DocManager.Inst.EndUndoGroup();
             }
             catch (Exception ex)
             {
@@ -1355,9 +1347,8 @@ namespace OpenUtauMobile.ViewModels
 
         internal void RemoveTrack(UTrack track)
         {
-            DocManager.Inst.StartUndoGroup();
+            using var undo = new UndoScope();
             DocManager.Inst.ExecuteCmd(new RemoveTrackCommand(DocManager.Inst.Project, track));
-            DocManager.Inst.EndUndoGroup();
             RefreshTrack();
         }
 
@@ -1383,9 +1374,8 @@ namespace OpenUtauMobile.ViewModels
 
         public void SetTimeSignature(int beatPerBar, int beatUnit)
         {
-            DocManager.Inst.StartUndoGroup();
+            using var undo = new UndoScope();
             DocManager.Inst.ExecuteCmd(new TimeSignatureCommand(DocManager.Inst.Project, beatPerBar, beatUnit));
-            DocManager.Inst.EndUndoGroup();
         }
 
         public void SetBpm(double bpm)
@@ -1394,9 +1384,8 @@ namespace OpenUtauMobile.ViewModels
             {
                 return;
             }
-            DocManager.Inst.StartUndoGroup();
+            using var undo = new UndoScope();
             DocManager.Inst.ExecuteCmd(new BpmCommand(DocManager.Inst.Project, bpm));
-            DocManager.Inst.EndUndoGroup();
         }
 
         public void SetKey(int key)
@@ -1405,9 +1394,8 @@ namespace OpenUtauMobile.ViewModels
             {
                 return;
             }
-            DocManager.Inst.StartUndoGroup();
+            using var undo = new UndoScope();
             DocManager.Inst.ExecuteCmd(new KeyCommand(DocManager.Inst.Project, key));
-            DocManager.Inst.EndUndoGroup();
         }
 
         public void RenderPitchAsync(
@@ -1489,9 +1477,8 @@ namespace OpenUtauMobile.ViewModels
 
             DocManager.Inst.PostOnUIThread(() =>
             {
-                DocManager.Inst.StartUndoGroup(true);
+                using var undo = new UndoScope();
                 commands.ForEach(DocManager.Inst.ExecuteCmd);
-                DocManager.Inst.EndUndoGroup();
             });
         }
 

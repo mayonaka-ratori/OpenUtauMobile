@@ -535,9 +535,8 @@ public partial class EditPage
         object? result = await this.ShowPopupAsync(popup);
         if (result is string bpmStr && double.TryParse(bpmStr, out double newBpm) && newBpm > 0)
         {
-            DocManager.Inst.StartUndoGroup();
+            using var undo = new UndoScope();
             DocManager.Inst.ExecuteCmd(new BpmCommand(DocManager.Inst.Project, newBpm));
-            DocManager.Inst.EndUndoGroup();
             RefreshProjectInfoDisplay();
         }
     }
@@ -548,9 +547,8 @@ public partial class EditPage
         object? result = await this.ShowPopupAsync(popup);
         if (result is Tuple<int, int> newTimeSignature)
         {
-            DocManager.Inst.StartUndoGroup();
+            using var undo = new UndoScope();
             DocManager.Inst.ExecuteCmd(new TimeSignatureCommand(DocManager.Inst.Project, newTimeSignature.Item1, newTimeSignature.Item2));
-            DocManager.Inst.EndUndoGroup();
             RefreshProjectInfoDisplay();
         }
     }
@@ -561,9 +559,8 @@ public partial class EditPage
         object? result = await this.ShowPopupAsync(popup);
         if (result is int newKey)
         {
-            DocManager.Inst.StartUndoGroup();
+            using var undo = new UndoScope();
             DocManager.Inst.ExecuteCmd(new KeyCommand(DocManager.Inst.Project, newKey));
-            DocManager.Inst.EndUndoGroup();
         }
     }
 
@@ -643,9 +640,8 @@ public partial class EditPage
             object? result = await this.ShowPopupAsync(popup);
             if (result is string colorKey)
             {
-                DocManager.Inst.StartUndoGroup();
+                using var undo = new UndoScope();
                 DocManager.Inst.ExecuteCmd(new ChangeTrackColorCommand(DocManager.Inst.Project, track, colorKey));
-                DocManager.Inst.EndUndoGroup();
             }
         }
     }
@@ -658,9 +654,8 @@ public partial class EditPage
             object? result = await this.ShowPopupAsync(popup);
             if (result is string newName && !string.IsNullOrEmpty(newName) && newName != track.TrackName)
             {
-                DocManager.Inst.StartUndoGroup();
+                using var undo = new UndoScope();
                 DocManager.Inst.ExecuteCmd(new RenameTrackCommand(DocManager.Inst.Project, track, newName));
-                DocManager.Inst.EndUndoGroup();
             }
         }
     }
@@ -721,11 +716,10 @@ public partial class EditPage
             DocManager.Inst.Project.expressions.TryGetValue(result, out UExpressionDescriptor? newExpressionDescriptor) &&
             newExpressionDescriptor != null)
         {
-            DocManager.Inst.StartUndoGroup();
+            using var undo = new UndoScope();
             _viewModel.PrimaryExpressionDescriptor = newExpressionDescriptor;
             _viewModel.UpdateExpressions();
             ExpressionCanvas.InvalidateSurface();
-            DocManager.Inst.EndUndoGroup();
         }
     }
 
@@ -738,11 +732,10 @@ public partial class EditPage
             DocManager.Inst.Project.expressions.TryGetValue(result, out UExpressionDescriptor? newExpressionDescriptor) &&
             newExpressionDescriptor != null)
         {
-            DocManager.Inst.StartUndoGroup();
+            using var undo = new UndoScope();
             _viewModel.SecondaryExpressionDescriptor = newExpressionDescriptor;
             _viewModel.UpdateExpressions();
             ExpressionCanvas.InvalidateSurface();
-            DocManager.Inst.EndUndoGroup();
         }
     }
 
@@ -811,10 +804,9 @@ public partial class EditPage
                     TrackNo = project.tracks.Count
                 };
                 result.trackNo = track.TrackNo;
-                DocManager.Inst.StartUndoGroup();
+                using var undo = new UndoScope();
                 DocManager.Inst.ExecuteCmd(new AddTrackCommand(project, track));
                 DocManager.Inst.ExecuteCmd(new AddPartCommand(project, result));
-                DocManager.Inst.EndUndoGroup();
             }
             await popup.Finish();
         }
