@@ -170,7 +170,8 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
     #region PianoRollTickBackground ビットマップキャッシュ（P2-5c / P2-D1）
     private SKBitmap? _pianoRollTickBgCacheBitmap;
     private SKCanvas? _pianoRollTickBgCacheCanvas;
-    // Opt-D: SKImage 中間コピー削除 — DrawBitmap(srcRect, dstRect) で直接描画
+    // Opt-D revert: SKImage (GPU テクスチャ) を維持 — DrawImage は DrawBitmap より大幅高速 (1.7-6.7ms vs 10-25ms)
+    private SKImage? _pianoRollTickBgCacheImage;
     private float _pianoRollTickBgCacheOriginPanX;
     private float _pianoRollTickBgCachedZoomX;
     private int _pianoRollTickBgCachedSnapDiv;
@@ -2230,31 +2231,36 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                 .PostConcat(SKMatrix.CreateTranslation(cachePanX, transformer.PanY));
             _pianoRollTickBgCacheCanvas.SetMatrix(cacheMatrix);
             DrawPianoRollGridToCanvas(_pianoRollTickBgCacheCanvas);
+            _pianoRollTickBgCacheImage?.Dispose();
+            _pianoRollTickBgCacheImage = SKImage.FromBitmap(_pianoRollTickBgCacheBitmap);
             _pianoRollTickBgCacheOriginPanX = currentPanX;
             _pianoRollTickBgCachedZoomX = currentZoomX;
             _pianoRollTickBgCachedSnapDiv = currentSnapDiv;
         }
         else if (needsPanRefresh)
         {
-            // Tier 2: ビットマップ再利用（パンドリフトのみ — 38MB アロケーション不要）
+            // Tier 2: ビットマップ再利用（パンドリフトのみ — 38MB SKBitmap アロケーション不要）
+            // SKImage は再生成が必要（GPU テクスチャを最新内容に更新）
             _pianoRollTickBgCacheCanvas!.Clear(SKColors.Transparent);
             float cachePanX = currentPanX - screenWidth * PIANO_ROLL_TICK_BG_CACHE_MARGIN;
             var cacheMatrix = SKMatrix.CreateScale(currentZoomX, transformer.ZoomY)
                 .PostConcat(SKMatrix.CreateTranslation(cachePanX, transformer.PanY));
             _pianoRollTickBgCacheCanvas.SetMatrix(cacheMatrix);
             DrawPianoRollGridToCanvas(_pianoRollTickBgCacheCanvas);
+            _pianoRollTickBgCacheImage?.Dispose();
+            _pianoRollTickBgCacheImage = SKImage.FromBitmap(_pianoRollTickBgCacheBitmap);
             _pianoRollTickBgCacheOriginPanX = currentPanX;
         }
-        // Opt-D: DrawBitmap(srcRect, dstRect) で描画 — SKImage.FromBitmap コピー（38MB）不要
+        // HIT path: DrawImage (GPU テクスチャ) — DrawBitmap (CPU blit) より大幅高速 (1.7-6.7ms vs 10-25ms)
         canvas.Clear(SKColors.Transparent);
         float offsetX = (currentPanX - _pianoRollTickBgCacheOriginPanX) + screenWidth * PIANO_ROLL_TICK_BG_CACHE_MARGIN;
         {
             float srcLeft = Math.Max(0, offsetX);
-            float srcRight = Math.Min(_pianoRollTickBgCacheBitmap!.Width, offsetX + screenWidth);
+            float srcRight = Math.Min(_pianoRollTickBgCacheImage!.Width, offsetX + screenWidth);
             float dstLeft = srcLeft - offsetX;
             var srcRect = new SKRect(srcLeft, 0, srcRight, screenHeight);
             var dstRect = new SKRect(dstLeft, 0, dstLeft + (srcRight - srcLeft), screenHeight);
-            canvas.DrawBitmap(_pianoRollTickBgCacheBitmap, srcRect, dstRect, null);
+            canvas.DrawImage(_pianoRollTickBgCacheImage, srcRect, dstRect);
         }
         // シャドウを動的描画（毎フレーム: 最大 2 DrawRect calls — 非常に低コスト）
         DrawPianoRollShadow(canvas, screenWidth, screenHeight, currentPanX, currentZoomX);
@@ -2758,7 +2764,8 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         _pianoRollTickBgCacheCanvas = null;
         _pianoRollTickBgCacheBitmap?.Dispose();
         _pianoRollTickBgCacheBitmap = null;
-        // _pianoRollTickBgCacheImage: Opt-D で削除済み（SKImage コピー不要）
+        _pianoRollTickBgCacheImage?.Dispose();
+        _pianoRollTickBgCacheImage = null;
         _pianoRollBarTextPaint.Dispose();
         _pianoRollBarFont.Dispose();
         _pianoRollShadowPaint.Dispose();

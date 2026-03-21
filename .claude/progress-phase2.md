@@ -144,11 +144,11 @@
 - `barlinePaint`, `barlineHeadPaint`, `beatlinePaint`, `beatlineHeadPaint`
 - 効果: MISS ごとに 660+ 回のプロパティチェーン呼び出しを排除
 
-**Opt-D: SKImage.FromBitmap → DrawBitmap(srcRect, dstRect) (L2257)**
-- `_pianoRollTickBgCacheImage` フィールド削除
-- `SKImage.FromBitmap()` (38MB memcpy) を完全除去
-- `canvas.DrawImage(image, srcRect, dstRect)` → `canvas.DrawBitmap(bitmap, srcRect, dstRect, null)` に置換
-- 効果: MISS 時ピークメモリ 76MB → 38MB、`SKImage.FromBitmap` コスト削除
+**~~Opt-D~~: SKImage.FromBitmap → DrawBitmap リバート済み (回帰バグ修正)**
+- 実装後、slow=22.9% → **100%** に悪化（全 571 フレームが >8ms）
+- 根本原因: `DrawBitmap` (CPU blit) は `DrawImage` (GPU テクスチャ) より大幅に遅い (10-25ms vs 1.7-6.7ms) — P2-5c で計測済みの既知差異
+- 対応: `_pianoRollTickBgCacheImage` フィールドを復元、`SKImage.FromBitmap + DrawImage` を再有効化
+- ただし SKImage は Tier1/Tier2 MISS 時のみ再生成（HIT パスでは毎フレーム再生成しない）
 
 **Opt-E: Typeface 変更ガード (DrawPianoRollGridToCanvas L2275-2278)**
 - `_pianoRollBarFont.Typeface = ...` → `if (... != targetTypeface) set` 形式に変更
@@ -291,7 +291,7 @@
 | 2026-03-20 | GestureProcessor.ForceReset() を安全網として追加 (BUG-C) | Android システムジェスチャーが Released/Cancelled を消費した場合、_activePoints にゴミエントリが残りパン不能になる。OnAppearing で全プロセッサを ForceReset() することで復帰を保証 |
 | 2026-03-20 | HandleTouchDown にステールポイントクリーンアップを追加 (BUG-C) | GestureState.None かつ _activePoints に残存エントリがある場合、新しい TouchDown を受け取った時点でクリア。システムジェスチャー割り込み後の「ゴーストタッチ状態」を即座に解消 |
 | 2026-03-21 | Stage C 完了 — ExpressionCanvas 可視化修正、Profiler try/finally カバレッジ保証、per-frame LINQ アロケーション排除 | P2-C1: ExpHeight=150 で BoundExp.Height=100px を確保。P2-C1: 5 PaintSurface メソッドに try/finally 追加で Profiler.End() 漏れを根絶。P2-C2: DrawRectangle/DrawLyrics 廃止メソッド 104 行削除。P2-C3: DrawNotes×2 + DrawWaveform×2 + TrackCanvas×1 の LINQ → foreach 置換で GC ガベージ削減 |
-| 2026-03-21 | P2-D1 完了 — PianoRollTickBg MISS コスト 4 最適化 (Opt-A/C/D/E) | Opt-A: パンドリフト MISS を 2 段階化してビットマップ再利用。Opt-C: ループ前ペイントキャッシュで 660+ プロパティチェーン削減。Opt-D: SKImage.FromBitmap 削除で 38MB memcpy と _pianoRollTickBgCacheImage フィールド除去、DrawBitmap(srcRect, dstRect) に置換。Opt-E: Typeface 変更ガード追加。SkiaSharp 3.119.0 で DrawBitmap(SKBitmap, SKRect, SKRect, SKPaint?) オーバーロード利用可能を API XML で確認済み |
+| 2026-03-21 | P2-D1 完了 — PianoRollTickBg MISS コスト 3 最適化 (Opt-A/C/E) + Opt-D リバート | Opt-A: パンドリフト MISS を 2 段階化してビットマップ再利用。Opt-C: ループ前ペイントキャッシュで 660+ プロパティチェーン削減。Opt-E: Typeface 変更ガード追加。Opt-D (DrawBitmap) は実機で slow=100% に悪化したためリバート — DrawBitmap (CPU blit 10-25ms) は DrawImage (GPU テクスチャ 1.7-6.7ms) より大幅に遅く、P2-5c 計測済みの既知差異を見落とした |
 
 ---
 
