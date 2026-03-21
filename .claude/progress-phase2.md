@@ -441,10 +441,31 @@
 EditPage.xaml.cs: 3,640 → 1,694 lines (53% reduction)
 Total partial class files: 4 (xaml.cs + Rendering + Toolbar + CmdSubscriber)
 
-### STOP GATE 1: Test Architecture Decision — PENDING
+### STOP GATE 1: Test Architecture — RESOLVED
 
-PM recommendation: Option B (MAUI test project)
-Waiting for engineer decision before Steps 6-8.
+Decision: Option B (multi-target TFM) — commit 4e8d109
+net9.0 (desktop実行) + net9.0-android (MAUIビルド検証) のデュアルターゲット。
+
+### Phase C: Safety Net (COMPLETE)
+
+| Step | Task | Status | Commit |
+|------|------|--------|--------|
+| 6 | Test project multi-target (net9.0 + net9.0-android) | ✅ | 4e8d109 |
+| 7 | 6 undo characterization tests (UndoScope + enum stability) | ✅ | 988d6b3 |
+
+### Phase D: Undo Migration (IN PROGRESS)
+
+| Step | Task | Status | Commit |
+|------|------|--------|--------|
+| 8a | 22 simple adjacent pairs converted (gap ≤5, no error path) | ✅ | 7eba112 |
+| 8b | 7 spanning pairs (field-based) + 2 single-method pairs (using var) | ✅ | 12de33f |
+| 8c | 4 error-path sites (StartCreatePart, RemoveSelectedParts, CreateDefaultNote, PasteNotes) | ⏳ PENDING | — |
+| 8d | ForceEndAllInteractions orphaned calls → UndoScope.TryEnd() | ⏳ PENDING | — |
+
+**undo移行進捗:**
+- 変換済み: **31サイト** (22 simple + 7 spanning + 2 single-method)
+- 残り: **13呼び出し** (11 error-path + 2 orphaned)
+- 変換後フィールド: `_movePartsUndoScope`, `_resizePartUndoScope`, `_resizeNotesUndoScope`, `_moveNotesUndoScope`, `_drawPitchUndoScope`, `_drawExpressionUndoScope`, `_resetExpressionUndoScope`
 
 ---
 
@@ -453,3 +474,5 @@ Waiting for engineer decision before Steps 6-8.
 | Date | Decision | Reason |
 | --- | --- | --- |
 | 2026-03-21 | Phase 2.5 Phase A+B completed. EditPage split into 4 partial class files. Independent audit passed with 0 critical issues. 39 unused usings cleaned. Proceeding to STOP GATE 1. | EditPage.xaml.cs は 3,640 → 1,694 行 (53% 削減)。Rendering.cs/Toolbar.cs/CmdSubscriber.cs の3ファイルに責務を分離。独立監査で重大問題ゼロを確認。SelectionMode 完全修飾コメント追加で可読性向上。 |
+| 2026-03-21 | STOP GATE 1 解決: Option B (multi-target TFM) 採用 — commit 4e8d109 | net9.0-android TFMでMAUI型をコンパイル検証しつつ、net9.0でデスクトップ実行可能なテスト構成を実現。#if ANDROID条件コンパイルでMAUI依存テストを分離。 |
+| 2026-03-21 | Phase 2.5 Steps 1-8b を単一セッションで完了。31 undo サイト変換済み。残り 13 呼び出しは error-path (8c) および orphaned (8d) — リスク高めのため次セッションに延期。 | 8c: StartCreatePart/RemoveSelectedParts/CreateDefaultNote/PasteNotes はcatch節内EndUndoGroupを含む複雑パターン。8d: ForceEndAllInteractions はUndoScope.TryEnd()への置換が必要。いずれも動作変更リスクがあるため個別セッションで慎重に実施。 |
