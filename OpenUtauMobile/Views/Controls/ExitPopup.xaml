@@ -27,7 +27,7 @@
             </ScrollView>
             <!-- 按钮栏 -->
             <HorizontalStackLayout Grid.Row="3" Spacing="10" HorizontalOptions="End" Margin="10">
-                <Button Grid.Column="2" Text="{Static res:AppResources.CancelText}" x:Name="ButtonCancel" Clicked="ButtonCancel_Clicked" WidthRequest="100" CornerRadius="25" BackgroundColor="Transparent" TextColor="{DynamicResource Primary}" BorderWidth="0" />
+                <Button Grid.Column="2" Text="戻る" x:Name="ButtonCancel" Clicked="ButtonCancel_Clicked" WidthRequest="80" CornerRadius="25" BackgroundColor="Transparent" TextColor="{DynamicResource Primary}" BorderWidth="0" />
                 <Button Text="{Static res:AppResources.DontSave}" x:Name="ButtonDiscard" Clicked="ButtonDiscard_Clicked" WidthRequest="80" CornerRadius="25" BackgroundColor="Transparent" TextColor="{DynamicResource Primary}" BorderColor="{DynamicResource Primary}" BorderWidth="0.5"/>
                 <Button Grid.Column="1" Text="{Static res:AppResources.SaveText}" x:Name="ButtonSave" Clicked="ButtonSave_Clicked" WidthRequest="80" CornerRadius="25" BackgroundColor="{DynamicResource Primary}" BorderWidth="0" />
             </HorizontalStackLayout>
