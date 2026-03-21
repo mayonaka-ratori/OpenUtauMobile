@@ -282,6 +282,16 @@
 
 ---
 
+## Known Issues (deferred)
+
+### BUG-D: PianoRoll Shadow boundary misalignment
+- Status: OPEN (deferred)
+- Symptom: Gray shadow area extends into the editable part region. Notes placed near the part start are partially covered by shadow.
+- Investigation (2026-03-21): DrawPianoRollShadow() coordinate math (L2350-2378) is correct and matches note coordinates. Possible causes: PianoKeysCanvas MAUI Shadow bleed (L313-316), EditingPart.position mismatch, or pre-existing upstream issue.
+- Next step: Log editingPart.position/ZoomX/PanX values on device.
+
+---
+
 ## Phase 2 Decision Log
 
 | Date | Decision | Reason |
