@@ -68,6 +68,37 @@ All matches should be field initializers only — zero inside method bodies.
 2. Bitmap caching: render static layers to SKBitmap, composite on top
 3. Touch-to-render pipeline: minimize layers between touch event and InvalidateSurface
 4. ThemeColorsManager.Current: cache in local variable at Draw() start if profiled as hot
+## Critical Rules
+
+### NEVER use canvas.DrawBitmap — ALWAYS use canvas.DrawImage
+`SKBitmap` resides in **CPU memory**. `DrawBitmap` transfers pixels CPU→GPU **every frame** (~10-25ms for large bitmaps).
+`SKImage.FromBitmap()` creates a **GPU texture cache**. `DrawImage` reuses this texture (~1.7-6.7ms).
+
+**Correct pattern:**
+```csharp
+// On cache MISS only — create GPU texture once
+_cacheImage?.Dispose();
+_cacheImage = SKImage.FromBitmap(_cacheBitmap);
+
+// Every HIT frame — draw from GPU texture (fast)
+canvas.DrawImage(_cacheImage, srcRect, dstRect);
+```
+
+**WRONG pattern (10-25ms every frame):**
+```csharp
+// DO NOT do this:
+canvas.DrawBitmap(_cacheBitmap, srcRect, dstRect, null);  // CPU blit — slow!
+```
+
+**Measured on Pixel 10 Pro XL:**
+- `DrawBitmap` (CPU blit): 10–25 ms/frame
+- `DrawImage` (GPU texture): 1.7–6.7 ms/frame
+- Ratio: **3–5× slower**
+
+**Verified in:**
+- P2-5c (2026-03-19): established baseline
+- P2-D1 Opt-D regression (2026-03-21, commit `a3dc4ac`): applying `DrawBitmap` caused slow% to jump from 22.9% → 100% (all 571 frames >8ms)
+
 ## Canvas Transform Safety
 - `canvas.Save()` / `canvas.Restore()` MUST be paired
 - `canvas.ResetMatrix()` MUST be followed by `canvas.SetMatrix(saved)` before return

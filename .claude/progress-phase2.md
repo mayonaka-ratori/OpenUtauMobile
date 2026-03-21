@@ -153,6 +153,15 @@
 **Opt-E: Typeface 変更ガード (DrawPianoRollGridToCanvas L2275-2278)**
 - `_pianoRollBarFont.Typeface = ...` → `if (... != targetTypeface) set` 形式に変更
 
+**P2-D1 計測結果 (2026-03-21 13:33):**
+
+| Canvas | Before (Stage C ベースライン) | After (P2-D1 Opt-A/C/E) | 改善 |
+|--------|-------------------------------|--------------------------|------|
+| PianoRollTickBg | max=57.42ms / slow=22.9% | **max=53.20ms / slow=4.1%** | slow 22.9% → 4.1% ✅ |
+
+- Opt-D リバート: `DrawBitmap` 適用後に slow=100% へ悪化 → リバートで復旧
+- skia-performance SKILL.md に「NEVER use DrawBitmap」ルール追加
+
 ---
 
 ## Stage C: Code Cleanup (2026-03-21)
@@ -209,6 +218,7 @@
 | 2026-03-20 | P2-B1 ノート描画修正後 | — | — | max=10.34ms<br/>(zoom heavy) | — | — |
 | 2026-03-20 | P2-B2 DrawableNotes 最適化後 | — | — | — | — | — |
 | 2026-03-21 | Stage C 前ベースライン | max=21.47ms<br/>slow=100% (2fr) | max=66.46ms<br/>slow=36.9% | max=26.48ms<br/>slow=1.3% | max=7.30ms<br/>slow=0% | max=16.96ms<br/>slow=40.0% |
+| 2026-03-21 13:33 | P2-D1 後 (Opt-A/C/E) | max=21.47ms<br/>slow=100% (2fr) | **max=53.20ms**<br/>**slow=4.1%** ✅ | max=26.48ms<br/>slow=1.3% | max=7.30ms<br/>slow=0% | — |
 
 **P2-B1 新規出現 Canvas (2026-03-20):**
 
@@ -292,6 +302,7 @@
 | 2026-03-20 | HandleTouchDown にステールポイントクリーンアップを追加 (BUG-C) | GestureState.None かつ _activePoints に残存エントリがある場合、新しい TouchDown を受け取った時点でクリア。システムジェスチャー割り込み後の「ゴーストタッチ状態」を即座に解消 |
 | 2026-03-21 | Stage C 完了 — ExpressionCanvas 可視化修正、Profiler try/finally カバレッジ保証、per-frame LINQ アロケーション排除 | P2-C1: ExpHeight=150 で BoundExp.Height=100px を確保。P2-C1: 5 PaintSurface メソッドに try/finally 追加で Profiler.End() 漏れを根絶。P2-C2: DrawRectangle/DrawLyrics 廃止メソッド 104 行削除。P2-C3: DrawNotes×2 + DrawWaveform×2 + TrackCanvas×1 の LINQ → foreach 置換で GC ガベージ削減 |
 | 2026-03-21 | P2-D1 完了 — PianoRollTickBg MISS コスト 3 最適化 (Opt-A/C/E) + Opt-D リバート | Opt-A: パンドリフト MISS を 2 段階化してビットマップ再利用。Opt-C: ループ前ペイントキャッシュで 660+ プロパティチェーン削減。Opt-E: Typeface 変更ガード追加。Opt-D (DrawBitmap) は実機で slow=100% に悪化したためリバート — DrawBitmap (CPU blit 10-25ms) は DrawImage (GPU テクスチャ 1.7-6.7ms) より大幅に遅く、P2-5c 計測済みの既知差異を見落とした |
+| 2026-03-21 | Opt-D (DrawBitmap) リバート — SKImage GPU テクスチャキャッシュは HIT パスの性能の根幹 | DrawBitmap は SKBitmap の CPU メモリを毎フレーム GPU に転送するため 10-25ms を消費。SKImage.FromBitmap は MISS 時のみ GPU テクスチャを生成し、HIT パスは DrawImage でテクスチャ再利用 (1.7-6.7ms)。「NEVER use DrawBitmap」ルールを skia-performance SKILL.md に追加して再発防止。 |
 
 ---
 
@@ -351,5 +362,5 @@
 ### ~~PianoRollTickBg MISS Cost (P2-INV-3)~~ → P2-D1 で対処済み (2026-03-21)
 - Opt-A: パンドリフト MISS で 38MB アロケーション → ビットマップ再利用 (Clear+Redraw)
 - Opt-C: ThemeColorsManager.Current.*Paint ループ前ローカルキャッシュ (660+ チェーン呼び出し削除)
-- Opt-D: SKImage.FromBitmap (38MB コピー) → DrawBitmap(srcRect, dstRect) 直接描画
+- ~~Opt-D~~: DrawBitmap は slow=100% 回帰を引き起こしリバート — SKImage GPU テクスチャ維持が正解
 - Opt-E: _pianoRollBarFont.Typeface 変更ガード追加
