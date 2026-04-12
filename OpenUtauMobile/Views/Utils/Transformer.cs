@@ -6,7 +6,6 @@ using System.Text;
 using System.Threading.Tasks;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
-using System.Diagnostics;
 
 namespace OpenUtauMobile.Views.Utils
 {
@@ -248,7 +247,7 @@ namespace OpenUtauMobile.Views.Utils
             ZoomY = InvalidateZoomY(_initialZoomY * scaleY);
             PanX = InvalidatePanX(panX);
             PanY = InvalidatePanY(panY);
-            Debug.WriteLine($"ZoomX: {ZoomX}, ZoomY: {ZoomY}"); // 调试输出
+            Console.WriteLine($"ZoomX: {ZoomX}, ZoomY: {ZoomY}"); // 调试输出
         }
         #endregion
 
@@ -334,7 +333,7 @@ namespace OpenUtauMobile.Views.Utils
             // 应用受限的缩放和平移
             ZoomY = InvalidateZoomY(_initialZoomY * scaleY);
             PanY = InvalidatePanY(panY);
-            Debug.WriteLine($"仅Y缩放: {ZoomX}, ZoomY: {ZoomY}"); // 调试输出
+            Console.WriteLine($"仅Y缩放: {ZoomX}, ZoomY: {ZoomY}"); // 调试输出
         }
         #endregion
 
@@ -354,7 +353,7 @@ namespace OpenUtauMobile.Views.Utils
         }
         private float InvalidatePanY(float value)
         {
-            Debug.WriteLine($"当前PanY限制：minPanY {MinPanY} maxPanY {MaxPanY}");
+            Console.WriteLine($"当前PanY限制：minPanY {MinPanY} maxPanY {MaxPanY}");
             return Math.Clamp(value, MinPanY, MaxPanY);
         }
         private float InvalidateZoomX(float value)

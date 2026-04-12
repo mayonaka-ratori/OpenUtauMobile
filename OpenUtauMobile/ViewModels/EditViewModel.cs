@@ -13,7 +13,6 @@ using ReactiveUI.Fody.Helpers;
 using System.Reactive.Disposables;
 using Serilog;
 using SkiaSharp;
-using System.Diagnostics;
 using Preferences = OpenUtau.Core.Util.Preferences;
 
 namespace OpenUtauMobile.ViewModels
@@ -128,6 +127,7 @@ namespace OpenUtauMobile.ViewModels
         #region 创建分片字段
         private SKPoint _startCreatePartPosition; // 用于记录开始创建分片时的起始位置
         public bool IsCreatingPart = false; // 是否正在创建分片
+        private UndoScope? _createPartUndoScope;
         #endregion
         #region 调整分片长度字段
         private SKPoint _startResizePartPosition; // 用于记录开始调整分片长度时的起始位置
@@ -212,7 +212,7 @@ namespace OpenUtauMobile.ViewModels
                 existingWork.Detail = detail;
                 // 触发属性变化通知
                 this.RaisePropertyChanged(nameof(RunningWorks));
-                Debug.WriteLine($"更新工作 {id}：类型={type}, 进度={progress}, 详情={detail}");
+                Console.WriteLine($"更新工作 {id}：类型={type}, 进度={progress}, 详情={detail}");
             }
             else
             {
@@ -225,7 +225,7 @@ namespace OpenUtauMobile.ViewModels
                     Detail = detail,
                     CancellationTokenSource = cancellationTokenSource
                 });
-                Debug.WriteLine($"添加工作 {id}：类型={type}, 进度={progress}, 详情={detail}");
+                Console.WriteLine($"添加工作 {id}：类型={type}, 进度={progress}, 详情={detail}");
             }
         }
 
@@ -235,7 +235,7 @@ namespace OpenUtauMobile.ViewModels
             if (workToRemove != null)
             {
                 RunningWorks.Remove(workToRemove);
-                Debug.WriteLine($"移除工作 {id}");
+                Console.WriteLine($"移除工作 {id}");
             }
         }
 
@@ -247,7 +247,7 @@ namespace OpenUtauMobile.ViewModels
                 return;
             }
             work.CancellationTokenSource.Cancel();
-            Debug.WriteLine($"取消工作 {id}");
+            Console.WriteLine($"取消工作 {id}");
         }
 
 
@@ -556,7 +556,7 @@ namespace OpenUtauMobile.ViewModels
                 // 检查新的位置是否在有效范围内
                 if (newPosition < 0 || newTrackNo < 0 || newTrackNo >= DocManager.Inst.Project.tracks.Count)
                 {
-                    Debug.WriteLine($"分片位置超出范围，无法移动。");
+                    Console.WriteLine($"分片位置超出范围，无法移动。");
                     return; // 如果新的位置超出范围，则不进行移动
                 }
                 newPositions[i] = newPosition;
@@ -577,7 +577,7 @@ namespace OpenUtauMobile.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine(ex);
+                    Console.WriteLine(ex);
                 }
             }
         }
@@ -605,7 +605,7 @@ namespace OpenUtauMobile.ViewModels
             // 确保轨道号在有效范围内
             if (trackNo < 0 || trackNo >= DocManager.Inst.Project.tracks.Count)
             {
-                Debug.WriteLine($"轨道号 {trackNo} 超出范围，无法创建分片。");
+                Console.WriteLine($"轨道号 {trackNo} 超出范围，无法创建分片。");
                 IsCreatingPart = false; // 创建失败，重置创建状态
                 return;
             }
@@ -626,20 +626,18 @@ namespace OpenUtauMobile.ViewModels
             // 清除选中的分片
             SelectedParts.Clear();
             SelectedParts.Add(part);
-            // 启动一个撤销组
-            DocManager.Inst.StartUndoGroup();
-            // 添加到项目中
+            _createPartUndoScope = new UndoScope();
             try
             {
                 DocManager.Inst.ExecuteCmd(new AddPartCommand(DocManager.Inst.Project, part));
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex);
-                IsCreatingPart = false; // 创建失败，重置创建状态
-                DocManager.Inst.EndUndoGroup(); // 结束撤销组
-                SelectedParts.Clear(); // 清空选中的分片
-                // 清除out of range的分片
+                Console.WriteLine(ex);
+                IsCreatingPart = false;
+                _createPartUndoScope?.Dispose();
+                _createPartUndoScope = null;
+                SelectedParts.Clear();
                 foreach (var p in DocManager.Inst.Project.parts)
                 {
                     if (p.trackNo >= DocManager.Inst.Project.tracks.Count || p.trackNo < 0)
@@ -679,8 +677,9 @@ namespace OpenUtauMobile.ViewModels
         /// </summary>
         public void EndCreatePart()
         {
-            IsCreatingPart = false; // 重置创建状态
-            DocManager.Inst.EndUndoGroup(); // 结束撤销组
+            IsCreatingPart = false;
+            _createPartUndoScope?.Dispose();
+            _createPartUndoScope = null;
         }
 
         /// <summary>
@@ -688,32 +687,21 @@ namespace OpenUtauMobile.ViewModels
         /// </summary>
         public void RemoveSelectedParts()
         {
-            // 创建一个副本以避免在枚举期间修改集合
             List<UPart> partsToRemove = [.. SelectedParts];
-            // 开启撤销组
-            DocManager.Inst.StartUndoGroup();
+            using var undo = new UndoScope();
             foreach (UPart part in partsToRemove)
             {
-                if (part == null)
-                {
-                    continue;
-                }
+                if (part == null) continue;
                 try
                 {
                     DocManager.Inst.ExecuteCmd(new RemovePartCommand(DocManager.Inst.Project, part));
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine(ex);
-                    // 结束撤销组
-                    DocManager.Inst.EndUndoGroup();
-                    // 清空选中的分片
-                    SelectedParts.Clear();
+                    Console.WriteLine(ex);
+                    break;
                 }
             }
-            // 结束撤销组
-            DocManager.Inst.EndUndoGroup();
-            // 清空选中的分片
             SelectedParts.Clear();
         }
 
@@ -877,7 +865,7 @@ namespace OpenUtauMobile.ViewModels
         public void ToggleTrackMuted(UTrack track)
         {
             track.Muted = !track.Muted;
-            Debug.WriteLine($"Track {track.TrackNo} Muted: {track.Muted}");
+            Console.WriteLine($"Track {track.TrackNo} Muted: {track.Muted}");
             RefreshTrack(track);
         }
 
@@ -888,54 +876,31 @@ namespace OpenUtauMobile.ViewModels
         public void CreateDefaultNote(SKPoint currentPoint)
         {
             int tone = (int)Math.Floor(ViewConstants.TotalPianoKeys - currentPoint.Y / Density / HeightPerPianoKey);
-            // 确保音高在有效范围内
-            if (tone < 0 || tone >= ViewConstants.TotalPianoKeys)
-            {
-                Debug.WriteLine($"音高 {tone} 超出范围，无法创建音符。");
-                return;
-            }
+            if (tone < 0 || tone >= ViewConstants.TotalPianoKeys) return;
+            if (EditingPart is not UVoicePart voicePart) return;
+            int position = PianoRollTickToFloorLinedTick((int)currentPoint.X);
+            if (position < voicePart.position || position >= voicePart.End) return;
+
+            UNote note = DocManager.Inst.Project.CreateNote(
+                noteNum: tone,
+                posTick: position - voicePart.position,
+                durTick: PianoRollSnapUnitTick
+                );
+            note.lyric = "a";
+            SelectedNotes.Clear();
+
+            using var undo = new UndoScope();
             try
             {
-                if (EditingPart is UVoicePart voicePart)
-                {
-                    int position = PianoRollTickToFloorLinedTick((int)currentPoint.X);
-                    // 确保位置在有效范围内
-                    if (position < voicePart.position || position >= voicePart.End)
-                    {
-                        Debug.WriteLine($"位置 {position} 超出分片范围，无法创建音符。");
-                        return;
-                    }
-                    // 获取一个初始音符
-                    UNote note = DocManager.Inst.Project.CreateNote(
-                        noteNum: tone,
-                        posTick: position - voicePart.position,
-                        durTick: PianoRollSnapUnitTick
-                        );
-                    note.lyric = "a";
-                    // 清除选中的音符
-                    SelectedNotes.Clear();
-                    // 启动一个撤销组
-                    DocManager.Inst.StartUndoGroup();
-                    DocManager.Inst.ExecuteCmd(new AddNoteCommand(voicePart, note));
-                    SelectedNotes.Add(note);
-                }
+                DocManager.Inst.ExecuteCmd(new AddNoteCommand(voicePart, note));
+                SelectedNotes.Add(note);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex);
-                IsCreatingPart = false; // 创建失败，重置创建状态
-                DocManager.Inst.EndUndoGroup(); // 结束撤销组
-                SelectedNotes.Clear(); // 清空选中的音符
-                // 清除out of range的音符
-                //foreach (var p in DocManager.Inst.Project.tracks.)
-                //{
-                //    if (p.trackNo >= DocManager.Inst.Project.tracks.Count || p.trackNo < 0)
-                //    {
-                //        DocManager.Inst.ExecuteCmd(new RemoveNoteCommand(DocManager.Inst.Project, p));
-                //    }
-                //}
+                Console.WriteLine(ex);
+                IsCreatingPart = false;
+                SelectedNotes.Clear();
             }
-            DocManager.Inst.EndUndoGroup(); // 结束撤销组
         }
 
         public void SetSinger(UTrack track, USinger newSinger)
@@ -1062,7 +1027,7 @@ namespace OpenUtauMobile.ViewModels
             {
                 track.Volume = newVolume;
                 DocManager.Inst.ExecuteCmd(new VolumeChangeNotification(track.TrackNo, newVolume));
-                Debug.WriteLine($"Track {track.TrackNo} Volume: {track.Volume}");
+                Console.WriteLine($"Track {track.TrackNo} Volume: {track.Volume}");
             }
         }
 
@@ -1126,7 +1091,7 @@ namespace OpenUtauMobile.ViewModels
             int deltaTone = newOffsetTone - _offsetTone;
             if (deltaPosition == 0 && deltaTone == 0)
             { return; } // 没有变化就不更新
-            Debug.WriteLine($"deltaPosition: {newOffsetPosition}, deltaTone: {newOffsetTone}");
+            Console.WriteLine($"deltaPosition: {newOffsetPosition}, deltaTone: {newOffsetTone}");
             // 更新音符位置
             DocManager.Inst.ExecuteCmd(new MoveNoteCommand(EditingPart, [.. SelectedNotes], deltaPosition, deltaTone));
             _offsetPosition = (int)newOffsetPosition;
@@ -1148,7 +1113,7 @@ namespace OpenUtauMobile.ViewModels
             }
             if (deltaDuration == 0)
             { return; } // 没有变化就不更新
-            Debug.WriteLine($"deltaDuration: {deltaDuration}");
+            Console.WriteLine($"deltaDuration: {deltaDuration}");
             // 更新音符长度
             DocManager.Inst.ExecuteCmd(new ResizeNoteCommand(EditingPart, [.. SelectedNotes], deltaDuration));
         }
@@ -1177,12 +1142,14 @@ namespace OpenUtauMobile.ViewModels
             if (IsMovingNotes)
             {
                 IsMovingNotes = false;
-                DocManager.Inst.EndUndoGroup();
+                _moveNotesUndoScope?.Dispose();
+                _moveNotesUndoScope = null;
             }
             if (IsResizingNote)
             {
                 IsResizingNote = false;
-                DocManager.Inst.EndUndoGroup();
+                _resizeNotesUndoScope?.Dispose();
+                _resizeNotesUndoScope = null;
             }
         }
 
@@ -1282,7 +1249,7 @@ namespace OpenUtauMobile.ViewModels
             double? basePitch = SamplePitch(samplePoint);
             if (basePitch == null)
             {
-                Debug.WriteLine($"无法采样基准音高，跳过绘制。");
+                Console.WriteLine($"无法采样基准音高，跳过绘制。");
                 return;
             }
             //Debug.WriteLine($"采样基准音高：{basePitch} cent");
@@ -1413,7 +1380,7 @@ namespace OpenUtauMobile.ViewModels
             UVoicePart part, List<UNote> selectedNotes,
             Action<string, int, int> setProgressCallback, CancellationToken cancellationToken, string workId)
         {
-            Debug.WriteLine("开始渲染音高");
+            Console.WriteLine("开始渲染音高");
             UProject project = DocManager.Inst.Project;
             var renderer = project.tracks[part.trackNo].RendererSettings.Renderer; // 获取当前轨道的渲染器
             if (renderer == null || !renderer.SupportsRenderPitch)
@@ -1435,7 +1402,7 @@ namespace OpenUtauMobile.ViewModels
             List<SetCurveCommand> commands = new List<SetCurveCommand>();
             for (int ph_i = phrases.Count() - 1; ph_i >= 0; ph_i--)
             { // 遍历每个phrase
-                Debug.WriteLine($"渲染音高 phrase {ph_i + 1}/{phrases.Length}");
+                Console.WriteLine($"渲染音高 phrase {ph_i + 1}/{phrases.Length}");
                 var phrase = phrases[ph_i];
                 var result = renderer.LoadRenderedPitch(phrase);
                 if (result == null)
@@ -1867,7 +1834,7 @@ namespace OpenUtauMobile.ViewModels
                 // We clone the note so changes to the original don't affect the clipboard
                 _clipboard.Add(note.Clone());
             }
-            Debug.WriteLine($"Copied {_clipboard.Count} notes.");
+            Console.WriteLine($"Copied {_clipboard.Count} notes.");
         }
         public void PasteNotes()
         {
@@ -1897,10 +1864,9 @@ namespace OpenUtauMobile.ViewModels
             // Target - Anchor = The distance to shift.
             int offset = targetLocalTick - clipboardMinPos;
 
-            DocManager.Inst.StartUndoGroup();
-
             List<UNote> newlyPastedNotes = new();
 
+            using var undo = new UndoScope();
             try
             {
                 foreach (var clipNote in _clipboard)
@@ -1923,8 +1889,6 @@ namespace OpenUtauMobile.ViewModels
             {
                 Log.Error(ex, "Failed to paste notes");
             }
-
-            DocManager.Inst.EndUndoGroup();
 
             // Update Selection to the new notes
             // This is standard UI behavior: after pasting, select the new items
@@ -1956,7 +1920,7 @@ namespace OpenUtauMobile.ViewModels
             // Request canvas update
             MessageBus.Current.SendMessage(new RefreshCanvasMessage());
 
-            Debug.WriteLine($"Selected {SelectedNotes.Count} notes.");
+            Console.WriteLine($"Selected {SelectedNotes.Count} notes.");
         }
         /// <summary>
         /// 导入轨道，此操作无法撤销
@@ -1986,7 +1950,7 @@ namespace OpenUtauMobile.ViewModels
                 using Some some = new();
                 return some.Transcribe(DocManager.Inst.Project, wavePart, wavPosS =>
                 {
-                    Debug.WriteLine($"转换进度: {wavPosS}/{wavDurS}");
+                    Console.WriteLine($"转换进度: {wavPosS}/{wavDurS}");
                     progress.Invoke((double)wavPosS / wavDurS * 100, $"{wavePart.name}\n{wavPosS}/{wavDurS}");
                 });
             });

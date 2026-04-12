@@ -1,7 +1,6 @@
 ﻿using Serilog;
 using SkiaSharp;
 using SkiaSharp.Views.Maui;
-using System.Diagnostics;
 
 namespace OpenUtauMobile.Views.Utils;
 public class GestureProcessor : IDisposable
@@ -76,7 +75,7 @@ public class GestureProcessor : IDisposable
     /// <param name="e"></param>
     private void HandleTouchCancel(SKTouchEventArgs e)
     {
-        Debug.WriteLine($"Touch cancelled: {e.Id}");
+        Console.WriteLine($"Touch cancelled: {e.Id}");
         _activePoints.Remove(e.Id);
         _pointQueue.Clear();
         switch (_activePoints.Count)
@@ -277,7 +276,7 @@ public class GestureProcessor : IDisposable
         // 如果both，仅平移
         float deltaX = Math.Abs(points[0].LastPosition.X - points[1].LastPosition.X);
         float deltaY = Math.Abs(points[0].LastPosition.Y - points[1].LastPosition.Y);
-        Debug.WriteLine($"DeltaX: {deltaX}, DeltaY: {deltaY}");
+        Console.WriteLine($"DeltaX: {deltaX}, DeltaY: {deltaY}");
         const float deltaThreshold = 200f;
         if (deltaX < deltaThreshold && deltaY < deltaThreshold)
         {
@@ -290,14 +289,14 @@ public class GestureProcessor : IDisposable
         else if (deltaX < deltaThreshold)
         {
             // X方向距离过近，仅Y缩放
-            Debug.WriteLine("X方向距离过近，仅Y缩放");
+            Console.WriteLine("X方向距离过近，仅Y缩放");
             YZoomStart?.Invoke(this, new ZoomStartEventArgs(points[0].LastPosition, points[1].LastPosition));
             _currentState = GestureState.YZoom;
         }
         else if (deltaY < deltaThreshold)
         {
             // Y方向距离过近，仅X缩放
-            Debug.WriteLine("Y方向距离过近，仅X缩放");
+            Console.WriteLine("Y方向距离过近，仅X缩放");
             XZoomStart?.Invoke(this, new ZoomStartEventArgs(points[0].LastPosition, points[1].LastPosition));
             _currentState = GestureState.XZoom;
         }
