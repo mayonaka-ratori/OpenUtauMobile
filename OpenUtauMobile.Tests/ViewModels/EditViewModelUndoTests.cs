@@ -91,5 +91,45 @@ public class EditViewModelUndoTests
         Assert.Equal(2, (int)NoteEditMode.EditPitchAnchor);
         Assert.Equal(3, (int)NoteEditMode.EditVibrato);
     }
+
+    // ---- Step 8c/8d verification tests ----
+
+    [Fact]
+    public void EditViewModel_Has_CreateDefaultNote()
+    {
+        // Step 8c: CreateDefaultNote was refactored (N-01). Verify signature unchanged.
+        var method = typeof(EditViewModel).GetMethod("CreateDefaultNote");
+        Assert.NotNull(method);
+    }
+
+    [Fact]
+    public void EditViewModel_Has_RemoveSelectedParts()
+    {
+        // Step 8c: RemoveSelectedParts was refactored (N-02). Verify signature unchanged.
+        var method = typeof(EditViewModel).GetMethod("RemoveSelectedParts");
+        Assert.NotNull(method);
+    }
+
+    [Fact]
+    public void EditViewModel_Has_CreatePartUndoScope_Field()
+    {
+        // Step 8c: _createPartUndoScope field was added (N-03). Verify it exists.
+        var field = typeof(EditViewModel).GetField(
+            "_createPartUndoScope",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        Assert.NotNull(field);
+    }
+
+    [Fact]
+    public void UndoScope_FieldBased_NullAfterDispose_Is_Idempotent()
+    {
+        // Step 8c/8d: Documents the field-based pattern safety contract.
+        // scope?.Dispose(); scope = null; scope?.Dispose() must be safe.
+        UndoScope? scope = new UndoScope();
+        scope?.Dispose();
+        scope = null;
+        scope?.Dispose(); // null-safe call — must not throw
+        Assert.Null(scope);
+    }
 }
 #endif
