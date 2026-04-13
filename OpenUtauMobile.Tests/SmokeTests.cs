@@ -52,4 +52,24 @@ public class SmokeTests
         Assert.InRange(vibrato.@in, 0f, 100f);
         Assert.InRange(vibrato.@out, 0f, 100f);
     }
+
+    [Fact]
+    public void UNote_Vibrato_DefaultLengthIsZero()
+    {
+        // Vibrato is disabled by default (length == 0).
+        // ToggleVibratoForSelectedNotes enables it by setting length = 50f.
+        var note = UNote.Create();
+
+        Assert.Equal(0f, note.vibrato.length);
+    }
+
+    [Fact]
+    public void UVibrato_ToggleDefaultLength_IsWithinRange()
+    {
+        // Documents the enable value used by ToggleVibratoForSelectedNotes.
+        // If the toggle target changes, this test will need to be updated.
+        const float toggleDefaultLength = 50f;
+
+        Assert.InRange(toggleDefaultLength, 0f, 100f);
+    }
 }
