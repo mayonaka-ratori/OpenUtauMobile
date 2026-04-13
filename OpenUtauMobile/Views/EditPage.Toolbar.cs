@@ -26,6 +26,9 @@ namespace OpenUtauMobile.Views;
 
 public partial class EditPage
 {
+    private const float ZoomStepFactor = 1.25f;
+    private const string ActiveQuantizeButtonArgb = "#60FFFFFF";
+
     private void ButtonPlayOrPause_Clicked(object sender, EventArgs e)
     {
         if (PlaybackManager.Inst.Playing) // 如果正在播放 => 暂停
@@ -53,14 +56,14 @@ public partial class EditPage
 
     private void ButtonZoomIn_Clicked(object sender, EventArgs e)
     {
-        _viewModel.TrackTransformer.SetZoomX(_viewModel.TrackTransformer.ZoomX * 1.25f);
-        _viewModel.TrackTransformer.SetPanX(_viewModel.TrackTransformer.PanX * 1.25f); // 放大时保持左侧位置不变
+        _viewModel.TrackTransformer.SetZoomX(_viewModel.TrackTransformer.ZoomX * ZoomStepFactor);
+        _viewModel.TrackTransformer.SetPanX(_viewModel.TrackTransformer.PanX * ZoomStepFactor); // 放大时保持左侧位置不变
     }
 
     private void ButtonZoomOut_Clicked(object sender, EventArgs e)
     {
-        _viewModel.TrackTransformer.SetZoomX(_viewModel.TrackTransformer.ZoomX / 1.25f);
-        _viewModel.TrackTransformer.SetPanX(_viewModel.TrackTransformer.PanX / 1.25f); // 缩小时保持左侧位置不变
+        _viewModel.TrackTransformer.SetZoomX(_viewModel.TrackTransformer.ZoomX / ZoomStepFactor);
+        _viewModel.TrackTransformer.SetPanX(_viewModel.TrackTransformer.PanX / ZoomStepFactor); // 缩小时保持左侧位置不变
     }
 
     private async void ButtonSave_Clicked(object sender, EventArgs e)
@@ -69,9 +72,9 @@ public partial class EditPage
     }
 
     /// <summary>
-    /// 保存
+    /// Saves the current project. Calls SaveAs() for unsaved projects.
     /// </summary>
-    /// <returns>是否成功</returns>
+    /// <returns>true if saved successfully; false if the user cancelled.</returns>
     private async Task<bool> Save()
     {
         if (!DocManager.Inst.Project.Saved)
@@ -86,9 +89,9 @@ public partial class EditPage
     }
 
     /// <summary>
-    /// 另存为
+    /// Prompts the user to choose a file path and saves the current project there.
     /// </summary>
-    /// <returns>是否成功</returns>
+    /// <returns>true if saved successfully; false if the user cancelled.</returns>
     private async Task<bool> SaveAs()
     {
         string path = await ObjectProvider.SaveFile([".ustx"], this);
@@ -212,7 +215,7 @@ public partial class EditPage
         }
         else
         {
-            Debug.WriteLine("未知的按钮");
+            Console.WriteLine("未知の NoteEditMode ボタン");
         }
     }
 
@@ -816,4 +819,121 @@ public partial class EditPage
             DocManager.Inst.ExecuteCmd(new ErrorMessageNotification("干声转换失败：", ex));
         }
     }
+
+    #region Vibrato Panel Handlers
+
+    /// <summary>
+    /// VibratoPanel のスライダー値を選択ノートの現在値に合わせてリフレッシュする。
+    /// EditVibrato モードに切り替えた直後に呼ぶ。
+    /// </summary>
+    internal void RefreshVibratoPanelValues()
+    {
+        var vib = _viewModel.GetVibratoForSelectedNote();
+        if (vib == null) return;
+        // スライダー ValueChanged ハンドラが ViewModel を呼ばないよう一時フラグを立てる
+        _suppressVibratoSliderEvents = true;
+        SliderVibratoLength.Value = vib.length;
+        SliderVibratoDepth.Value = vib.depth;
+        SliderVibratoPeriod.Value = vib.period;
+        SliderVibratoFadeIn.Value = vib.@in;
+        SliderVibratoFadeOut.Value = vib.@out;
+        LabelVibratoLength.Text = $"Length: {vib.length:F0}%";
+        LabelVibratoDepth.Text = $"Depth: {vib.depth:F0} cents";
+        LabelVibratoPeriod.Text = $"Period: {vib.period:F0} ms";
+        LabelVibratoFadeIn.Text = $"Fade In: {vib.@in:F0}%";
+        LabelVibratoFadeOut.Text = $"Fade Out: {vib.@out:F0}%";
+        _suppressVibratoSliderEvents = false;
+    }
+
+    private bool _suppressVibratoSliderEvents = false;
+
+    private void ButtonVibratoToggle_Clicked(object sender, EventArgs e)
+    {
+        _viewModel.ToggleVibratoForSelectedNotes();
+        RefreshVibratoPanelValues();
+        PianoRollCanvas.InvalidateSurface();
+    }
+
+    private void SliderVibratoLength_ValueChanged(object sender, ValueChangedEventArgs e)
+    {
+        if (_suppressVibratoSliderEvents) return;
+        LabelVibratoLength.Text = $"Length: {e.NewValue:F0}%";
+        _viewModel.SetVibratoLength((float)e.NewValue);
+        PianoRollCanvas.InvalidateSurface();
+    }
+
+    private void SliderVibratoDepth_ValueChanged(object sender, ValueChangedEventArgs e)
+    {
+        if (_suppressVibratoSliderEvents) return;
+        LabelVibratoDepth.Text = $"Depth: {e.NewValue:F0} cents";
+        _viewModel.SetVibratoDepth((float)e.NewValue);
+        PianoRollCanvas.InvalidateSurface();
+    }
+
+    private void SliderVibratoPeriod_ValueChanged(object sender, ValueChangedEventArgs e)
+    {
+        if (_suppressVibratoSliderEvents) return;
+        LabelVibratoPeriod.Text = $"Period: {e.NewValue:F0} ms";
+        _viewModel.SetVibratoPeriod((float)e.NewValue);
+        PianoRollCanvas.InvalidateSurface();
+    }
+
+    private void SliderVibratoFadeIn_ValueChanged(object sender, ValueChangedEventArgs e)
+    {
+        if (_suppressVibratoSliderEvents) return;
+        LabelVibratoFadeIn.Text = $"Fade In: {e.NewValue:F0}%";
+        _viewModel.SetVibratoFadeIn((float)e.NewValue);
+        PianoRollCanvas.InvalidateSurface();
+    }
+
+    private void SliderVibratoFadeOut_ValueChanged(object sender, ValueChangedEventArgs e)
+    {
+        if (_suppressVibratoSliderEvents) return;
+        LabelVibratoFadeOut.Text = $"Fade Out: {e.NewValue:F0}%";
+        _viewModel.SetVibratoFadeOut((float)e.NewValue);
+        PianoRollCanvas.InvalidateSurface();
+    }
+
+    #endregion
+
+    #region Quantize Button Handlers
+
+    /// <summary>
+    /// 1/4, 1/8, 1/16, 1/32, 三連符ボタンで PianoRollSnapDiv を変更し、
+    /// アクティブなボタンを視覚的にハイライトする。
+    /// </summary>
+    private void BtnSnap_Clicked(object sender, EventArgs e)
+    {
+        if (sender is not Button btn) return;
+        int div = btn.Text switch
+        {
+            "1/4"  => 4,
+            "1/8"  => 8,
+            "1/16" => 16,
+            "1/32" => 32,
+            "3連"  => 3,
+            _      => 16,
+        };
+        _viewModel.PianoRollSnapDiv = div;
+        Console.WriteLine($"[Quantize] SnapDiv set to 1/{div}");
+        UpdateQuantizeButtonHighlight(div);
+        PianoRollCanvas.InvalidateSurface();
+        PianoRollTickBackgroundCanvas.InvalidateSurface();
+    }
+
+    /// <summary>
+    /// アクティブなクオンタイズボタンをハイライト表示する。
+    /// </summary>
+    private void UpdateQuantizeButtonHighlight(int activeDiv)
+    {
+        var buttons = new[] { (BtnSnap4, 4), (BtnSnap8, 8), (BtnSnap16, 16), (BtnSnap32, 32), (BtnSnapTriplet, 3) };
+        foreach (var (btn, div) in buttons)
+        {
+            btn.BackgroundColor = (div == activeDiv)
+                ? Color.FromArgb(ActiveQuantizeButtonArgb)
+                : Colors.Transparent;
+        }
+    }
+
+    #endregion
 }

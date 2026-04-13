@@ -10,6 +10,7 @@
 using OpenUtau.Core;
 using OpenUtau.Core.Render;
 using OpenUtau.Core.Ustx;
+using OpenUtau.Core.Util;
 using OpenUtauMobile.Utils;
 using OpenUtauMobile.ViewModels;
 using OpenUtauMobile.Views.DrawableObjects;
@@ -121,6 +122,9 @@ public partial class EditPage
             }
             _drawableNotes.Draw();
             _viewModel.EditingNotes = _drawableNotes;
+            // EditVibrato モード時にビブラート波形オーバーレイを描画
+            if (_viewModel.CurrentNoteEditMode == NoteEditMode.EditVibrato)
+                DrawVibratoOverlay(e.Surface.Canvas, e.Info, part);
         }
         }
         finally
@@ -948,6 +952,97 @@ public partial class EditPage
 #if DEBUG
             PaintSurfaceProfiler.End(_sw, nameof(ExpressionCanvas));
 #endif
+        }
+    }
+
+    /// <summary>
+    /// EditVibrato モード時に、選択ノートのビブラート波形をピアノロール上にオーバーレイ描画する。
+    /// _vibratoPaint / _vibratoPath は EditPage.xaml.cs のフィールドを使用（PaintSurface 内アロケーション禁止）。
+    /// </summary>
+    private void DrawVibratoOverlay(SKCanvas canvas, SKImageInfo info, UVoicePart voicePart)
+    {
+        if (_viewModel.SelectedNotes.Count == 0) return;
+
+        var transformer = _viewModel.PianoRollTransformer;
+        float zoomX = transformer.ZoomX;
+        float zoomY = transformer.ZoomY;
+        float panX = transformer.PanX;
+        float panY = transformer.PanY;
+        float heightPerKey = (float)_viewModel.HeightPerPianoKey * (float)_viewModel.Density;
+        int partPositionX = voicePart.position;
+        double tempo = DocManager.Inst.Project.tempos.Count > 0
+            ? DocManager.Inst.Project.tempos[0].bpm : 120.0;
+        float screenWidth = info.Width;
+
+        foreach (var note in _viewModel.SelectedNotes)
+        {
+            var vib = note.vibrato;
+            if (vib.length <= 0f) continue;
+
+            // ビブラート区間（パート相対ティック）
+            float startRatio = 1f - vib.length / 100f;
+            int vibStartTick = note.position + (int)(note.duration * startRatio);
+            int vibEndTick = note.position + note.duration;
+            int totalVibTicks = vibEndTick - vibStartTick;
+            if (totalVibTicks <= 0) continue;
+
+            // 画面外スキップ
+            float startScreenX = (partPositionX + vibStartTick) * zoomX + panX;
+            float endScreenX = (partPositionX + vibEndTick) * zoomX + panX;
+            if (endScreenX < 0 || startScreenX > screenWidth) continue;
+
+            // ノート中央 Y
+            float noteCenterY = (ViewConstants.TotalPianoKeys - note.tone - 0.5f) * heightPerKey * zoomY + panY;
+
+            // 深さをピクセルに変換（100 cents = 1 semitone = 1 heightPerKey）
+            float depthPx = vib.depth / 100f * heightPerKey * zoomY;
+
+            // 周期をティックに変換
+            double periodTicks = MusicMath.TempoMsToTick(tempo, vib.period);
+            if (periodTicks < 1.0) continue;
+
+            double shiftRad = vib.shift / 100.0 * 2.0 * Math.PI;
+
+            // 描画範囲をクリップ
+            float drawStartX = Math.Max(0f, startScreenX);
+            float drawEndX = Math.Min(screenWidth, endScreenX);
+
+            _vibratoPath.Reset();
+            bool pathStarted = false;
+
+            for (float px = drawStartX; px <= drawEndX; px += VibratoRenderStepPx)
+            {
+                // 画面 X → パート相対ティック
+                float logicalTick = (px - panX) / zoomX - partPositionX;
+                float vibTick = logicalTick - vibStartTick;
+                if (vibTick < 0f) continue;
+
+                // フェードイン・アウト エンベロープ
+                float envelope = 1f;
+                float inTicks = totalVibTicks * vib.@in / 100f;
+                float outTicks = totalVibTicks * vib.@out / 100f;
+                if (vibTick < inTicks && inTicks > 0f)
+                    envelope = vibTick / inTicks;
+                else if (vibTick > totalVibTicks - outTicks && outTicks > 0f)
+                    envelope = (totalVibTicks - vibTick) / outTicks;
+
+                // サイン波
+                double phase = vibTick / periodTicks * 2.0 * Math.PI + shiftRad;
+                float sinY = noteCenterY - (float)(Math.Sin(phase) * depthPx * envelope);
+
+                if (!pathStarted)
+                {
+                    _vibratoPath.MoveTo(px, sinY);
+                    pathStarted = true;
+                }
+                else
+                {
+                    _vibratoPath.LineTo(px, sinY);
+                }
+            }
+
+            if (pathStarted)
+                canvas.DrawPath(_vibratoPath, _vibratoPaint);
         }
     }
 }

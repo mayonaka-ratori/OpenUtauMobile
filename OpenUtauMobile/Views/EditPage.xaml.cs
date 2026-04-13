@@ -182,6 +182,17 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
     private readonly SKPaint _pianoRollShadowPaint = new() { Color = ThemeColorsManager.Current.PianoRollShadow, Style = SKPaintStyle.Fill };
     // PianoRollPlaybackPosLinePaint は per-frame でアクセスされるためフィールドにキャッシュ (P2-5c Fix2)
     private readonly SKPaint _pianoRollPlaybackLinePaint = ThemeColorsManager.Current.PianoRollPlaybackPosLinePaint;
+    // ビブラートオーバーレイ描画用 (EditVibrato モード時)
+    private readonly SKPaint _vibratoPaint = new()
+    {
+        Style = SKPaintStyle.Stroke,
+        StrokeWidth = 2f,
+        Color = new SKColor(0xFF, 0xAA, 0x00, 0xCC), // オレンジ半透明
+        IsAntialias = true,
+    };
+    private readonly SKPath _vibratoPath = new();
+    // Step increment (px) for the vibrato waveform render loop in DrawVibratoOverlay
+    private const float VibratoRenderStepPx = 2f;
     #endregion
 
     public EditPage(string path)
@@ -311,6 +322,12 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                 ButtonSwitchEditPitchAnchorMode.BackgroundColor = mode == NoteEditMode.EditPitchAnchor ? activeColor : Colors.Transparent;
                 ButtonSwitchEditVibratoMode.BackgroundColor = mode == NoteEditMode.EditVibrato ? activeColor : Colors.Transparent;
                 _viewModel.IsShowSelectButton = mode == NoteEditMode.EditNote;
+                // VibratoPanel / ExpressionCanvas 表示切替
+                bool isVibrato = mode == NoteEditMode.EditVibrato;
+                VibratoPanel.IsVisible = isVibrato;
+                ExpressionCanvas.IsVisible = !isVibrato;
+                if (isVibrato)
+                    RefreshVibratoPanelValues();
                 // 重绘画布
                 PianoRollCanvas.InvalidateSurface();
                 PianoRollPitchCanvas.InvalidateSurface();
@@ -1105,14 +1122,81 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
         #endregion
         #region 音素画布手势事件
         // 订阅点击事件
-        _phonemeGestureProcessor.Tap += (sender, e) =>
+        _phonemeGestureProcessor.Tap += async (sender, e) =>
         {
-            Debug.WriteLine($"点击音素画布事件: {e.Position}");
+            Console.WriteLine($"PhonemeCanvas tap: {e.Position}");
+            if (_viewModel.EditingPart is not UVoicePart tapPart) return;
+
+            // タップ X → パート相対ティック
+            float logicalTick = _viewModel.PianoRollTransformer.ActualToLogicalX(e.Position.X) - tapPart.position;
+
+            // 最近傍フォネームを探す（±300 tick 以内）
+            const int hitThresholdTicks = 300;
+            UPhoneme? tapped = null;
+            int minDist = int.MaxValue;
+            foreach (var ph in tapPart.phonemes)
+            {
+                int dist = Math.Abs(ph.position - (int)logicalTick);
+                if (dist < minDist && dist < hitThresholdTicks)
+                {
+                    minDist = dist;
+                    tapped = ph;
+                }
+            }
+            if (tapped == null) return;
+
+            // 編集メニュー
+            var action = await DisplayActionSheet(
+                $"フォネーム: {tapped.phoneme}",
+                AppResources.CancelText,
+                null,
+                "プレアッター差分 (ms)",
+                "オーバーラップ差分 (ms)",
+                "オフセット (ticks)",
+                "エイリアス変更");
+
+            switch (action)
+            {
+                case "プレアッター差分 (ms)":
+                {
+                    string init = $"{tapped.preutterDelta ?? 0:F1}";
+                    var str = await DisplayPromptAsync("プレアッター", "差分 (ms) を入力:", initialValue: init, keyboard: Keyboard.Numeric);
+                    if (str != null && float.TryParse(str, System.Globalization.NumberStyles.Float,
+                            System.Globalization.CultureInfo.InvariantCulture, out float val))
+                        _viewModel.SetPhonemePreutter(tapped.Parent, tapped.index, val);
+                    break;
+                }
+                case "オーバーラップ差分 (ms)":
+                {
+                    string init = $"{tapped.overlapDelta ?? 0:F1}";
+                    var str = await DisplayPromptAsync("オーバーラップ", "差分 (ms) を入力:", initialValue: init, keyboard: Keyboard.Numeric);
+                    if (str != null && float.TryParse(str, System.Globalization.NumberStyles.Float,
+                            System.Globalization.CultureInfo.InvariantCulture, out float val))
+                        _viewModel.SetPhonemeOverlap(tapped.Parent, tapped.index, val);
+                    break;
+                }
+                case "オフセット (ticks)":
+                {
+                    int currentOffset = tapped.Parent.GetPhonemeOverride(tapped.index).offset ?? 0;
+                    var str = await DisplayPromptAsync("オフセット", "ティック数を入力:", initialValue: $"{currentOffset}", keyboard: Keyboard.Numeric);
+                    if (str != null && int.TryParse(str, out int val))
+                        _viewModel.SetPhonemeOffset(tapped.Parent, tapped.index, val);
+                    break;
+                }
+                case "エイリアス変更":
+                {
+                    var str = await DisplayPromptAsync("エイリアス", "新しいエイリアス (空欄でリセット):", initialValue: tapped.phoneme);
+                    if (str != null)
+                        _viewModel.SetPhonemeAlias(tapped.Parent, tapped.index, str.Length == 0 ? null : str);
+                    break;
+                }
+            }
+            PhonemeCanvas.InvalidateSurface();
         };
         // 订阅双击事件
         _phonemeGestureProcessor.DoubleTap += (sender, e) =>
         {
-            Debug.WriteLine($"双击音素画布事件: {e.Position}");
+            Console.WriteLine($"PhonemeCanvas double tap: {e.Position}");
         };
         // 订阅平移开始事件
         _phonemeGestureProcessor.PanStart += (sender, e) =>
