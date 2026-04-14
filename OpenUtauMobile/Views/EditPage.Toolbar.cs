@@ -31,13 +31,13 @@ public partial class EditPage
 
     private void ButtonPlayOrPause_Clicked(object sender, EventArgs e)
     {
-        if (PlaybackManager.Inst.Playing) // 如果正在播放 => 暂停
+        if (PlaybackManager.Inst.Playing) // Playing → pause
         {
             PlaybackManager.Inst.PlayOrPause();
             // When pausing we don't want the playhead to jump to start yet
             _viewModel.PlaybackWasStoppedManually = false;
         }
-        else // 如果没有播放 => 播放
+        else // Not playing → start playback
         {
             // Set start position
             _viewModel.PlaybackStartPosition = _viewModel.PlayPosTick;
@@ -50,20 +50,20 @@ public partial class EditPage
     private void ButtonSwitchEditMode_Clicked(object sender, EventArgs e)
     {
         _viewModel.CurrentTrackEditMode = _viewModel.CurrentTrackEditMode == TrackEditMode.Edit ? TrackEditMode.Normal : TrackEditMode.Edit;
-        // 重绘走带画布
+        // Redraw track canvas
         TrackCanvas.InvalidateSurface();
     }
 
     private void ButtonZoomIn_Clicked(object sender, EventArgs e)
     {
         _viewModel.TrackTransformer.SetZoomX(_viewModel.TrackTransformer.ZoomX * ZoomStepFactor);
-        _viewModel.TrackTransformer.SetPanX(_viewModel.TrackTransformer.PanX * ZoomStepFactor); // 放大时保持左侧位置不变
+        _viewModel.TrackTransformer.SetPanX(_viewModel.TrackTransformer.PanX * ZoomStepFactor); // Keep left edge fixed on zoom in
     }
 
     private void ButtonZoomOut_Clicked(object sender, EventArgs e)
     {
         _viewModel.TrackTransformer.SetZoomX(_viewModel.TrackTransformer.ZoomX / ZoomStepFactor);
-        _viewModel.TrackTransformer.SetPanX(_viewModel.TrackTransformer.PanX / ZoomStepFactor); // 缩小时保持左侧位置不变
+        _viewModel.TrackTransformer.SetPanX(_viewModel.TrackTransformer.PanX / ZoomStepFactor); // Keep left edge fixed on zoom out
     }
 
     private async void ButtonSave_Clicked(object sender, EventArgs e)
@@ -79,11 +79,11 @@ public partial class EditPage
     {
         if (!DocManager.Inst.Project.Saved)
         {
-            return await SaveAs(); // 新项目必须另存为
+            return await SaveAs(); // New (unsaved) project must use Save As
         }
         else
         {
-            DocManager.Inst.ExecuteCmd(new SaveProjectNotification(string.Empty)); // 保持当前路径保存
+            DocManager.Inst.ExecuteCmd(new SaveProjectNotification(string.Empty)); // Save to existing path
             return true;
         }
     }
@@ -117,7 +117,7 @@ public partial class EditPage
     {
         if (_viewModel.SelectedParts.Count > 0)
         {
-            // 删除选中的分片
+            // Remove selected parts
             _viewModel.RemoveSelectedParts();
         }
     }
@@ -129,9 +129,9 @@ public partial class EditPage
 
     private async void ButtonRenamePart_Clicked(object sender, EventArgs e)
     {
-        // 启动撤销组
+        // Start undo group
         DocManager.Inst.StartUndoGroup();
-        // 重命名选中的第一个分片
+        // Rename the first selected part
         if (_viewModel.SelectedParts.Count > 0)
         {
             UPart part = _viewModel.SelectedParts[0];
@@ -145,7 +145,7 @@ public partial class EditPage
                 }
             }
         }
-        // 结束撤销组
+        // End undo group
         DocManager.Inst.EndUndoGroup();
     }
 
@@ -158,34 +158,30 @@ public partial class EditPage
     }
 
     /// <summary>
-    /// 将当前轨道上移一层
+    /// Moves the current track up one position.
     /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
     private void ButtonMoveUp_Clicked(object sender, EventArgs e)
     {
         if (sender is Button button && button.BindingContext is UTrack track)
         {
             if (_viewModel.MoveTrackUp(track))
             {
-                // 移动成功，更新UI
+                // Move succeeded — refresh UI
                 TrackCanvas.InvalidateSurface();
             }
         }
     }
 
     /// <summary>
-    /// 将当前轨道下移一层
+    /// Moves the current track down one position.
     /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
     private void ButtonMoveDown_Clicked(object sender, EventArgs e)
     {
         if (sender is Button button && button.BindingContext is UTrack track)
         {
             if (_viewModel.MoveTrackDown(track))
             {
-                // 移动成功，更新UI
+                // Move succeeded — refresh UI
                 TrackCanvas.InvalidateSurface();
             }
         }
@@ -244,11 +240,11 @@ public partial class EditPage
             switch (e.StatusType)
             {
                 case GestureStatus.Started:
-                    // 保存初始音量
+                    // Save initial volume
                     _viewModel.OriginalVolume = track.Volume;
                     break;
                 case GestureStatus.Running:
-                    double deltaVolume = e.TotalX / 20; // 每移动20像素，音量变化1.0
+                    double deltaVolume = e.TotalX / 20; // Volume changes 1.0 per 20 px of drag
                     slider.Value = Math.Clamp(_viewModel.OriginalVolume + deltaVolume, -24, 12);
                     break;
                 case GestureStatus.Completed:
@@ -263,7 +259,7 @@ public partial class EditPage
 
     private void GestureResetPan_Tapped(object sender, TappedEventArgs e)
     {
-        Debug.WriteLine("重置声像");
+        Console.WriteLine("Reset pan");
         if (sender is Slider slider)
         {
             slider.Value = 0;
@@ -277,11 +273,11 @@ public partial class EditPage
             switch (e.StatusType)
             {
                 case GestureStatus.Started:
-                    // 保存初始声像
+                    // Save initial pan
                     _viewModel.OriginalPan = track.Pan;
                     break;
                 case GestureStatus.Running:
-                    double deltaPan = e.TotalX; // 每移动100像素，声像变化1.0
+                    double deltaPan = e.TotalX; // Pan changes 1.0 per 100 px of drag
                     slider.Value = Math.Clamp(_viewModel.OriginalPan + deltaPan, -100.0, 100.0);
                     break;
                 case GestureStatus.Completed:
@@ -296,7 +292,7 @@ public partial class EditPage
 
     private void GestureResetVolume_Tapped(object sender, TappedEventArgs e)
     {
-        Debug.WriteLine("重置音量");
+        Console.WriteLine("Reset volume");
         if (sender is Slider slider)
         {
             slider.Value = 0;
@@ -312,14 +308,14 @@ public partial class EditPage
     {
         if (isPianoRollSnapDivButtonLongPressed)
         {
-            // 如果是长按触发的点击事件，忽略此次点击
+            // Long-press already handled — ignore this click event
             isPianoRollSnapDivButtonLongPressed = false;
             return;
         }
-        Debug.WriteLine("单击");
+        Console.WriteLine("Single click: piano roll snap");
         _viewModel.IsPianoRollSnapToGrid = !_viewModel.IsPianoRollSnapToGrid;
         //ButtonPianoRollSnapToGrid.BackgroundColor = _viewModel.IsPianoRollSnapToGrid ? Color.FromArgb("#FF4081") : Color.FromRgba("#FFFFFF");
-        //ButtonPianoRollSnapToGrid.Text = _viewModel.IsPianoRollSnapToGrid ? "磁" : "不";
+        //ButtonPianoRollSnapToGrid.Text = _viewModel.IsPianoRollSnapToGrid ? "On" : "Off";
         if (Application.Current?.Resources != null)
         {
             ButtonPianoRollSnapToGrid.ImageSource = _viewModel.IsPianoRollSnapToGrid
@@ -330,33 +326,33 @@ public partial class EditPage
 
     private async void TouchBehaviorPianoRollSnapToGrid_LongPressCompleted(object sender, CommunityToolkit.Maui.Core.LongPressCompletedEventArgs e)
     {
-        Debug.WriteLine("长按完成");
-        // 阻止单击事件
+        Console.WriteLine("Long press: piano roll snap");
+        // Suppress the subsequent click event
         isPianoRollSnapDivButtonLongPressed = true;
-        // 弹出选择菜单
+        // Show quantization picker popup
         Popup popup = new PianoRollSnapDivPopup(_viewModel.PianoRollSnapDiv, _viewModel.SnapDivs, AppResources.PianoRollQuantization);
         object? result = await this.ShowPopupAsync(popup);
         if (result is int newSnapDiv)
         {
             _viewModel.PianoRollSnapDiv = newSnapDiv;
             PianoRollTickBackgroundCanvas.InvalidateSurface();
-            Debug.WriteLine($"选择了新的量化: {newSnapDiv}");
+            Console.WriteLine($"Piano roll quantization changed: {newSnapDiv}");
         }
     }
 
     private async void TouchBehaviorTrackSnapToGrid_LongPressCompleted(object sender, CommunityToolkit.Maui.Core.LongPressCompletedEventArgs e)
     {
-        Debug.WriteLine("长按完成");
-        // 阻止单击事件
+        Console.WriteLine("Long press: track snap");
+        // Suppress the subsequent click event
         isTrackSnapDivButtonLongPressed = true;
-        // 弹出选择菜单
-        Popup popup = new PianoRollSnapDivPopup(_viewModel.TrackSnapDiv, _viewModel.SnapDivs, "走带量化");
+        // Show quantization picker popup
+        Popup popup = new PianoRollSnapDivPopup(_viewModel.TrackSnapDiv, _viewModel.SnapDivs, "Track Quantization");
         object? result = await this.ShowPopupAsync(popup);
         if (result is int newSnapDiv)
         {
             _viewModel.TrackSnapDiv = newSnapDiv;
             PlaybackTickBackgroundCanvas.InvalidateSurface();
-            Debug.WriteLine($"选择了新的量化: {newSnapDiv}");
+            Console.WriteLine($"Track quantization changed: {newSnapDiv}");
         }
     }
 
@@ -364,11 +360,11 @@ public partial class EditPage
     {
         if (isTrackSnapDivButtonLongPressed)
         {
-            // 如果是长按触发的点击事件，忽略此次点击
+            // Long-press already handled — ignore this click event
             isTrackSnapDivButtonLongPressed = false;
             return;
         }
-        Debug.WriteLine("单击");
+        Console.WriteLine("Single click: track snap");
         _viewModel.IsTrackSnapToGrid = !_viewModel.IsTrackSnapToGrid;
         if (Application.Current?.Resources != null)
         {
@@ -398,7 +394,7 @@ public partial class EditPage
             case "import_tracks":
             {
                 string path = await ObjectProvider.PickFile([".ustx", ".vsqx", ".ust", ".mid", ".midi", ".ufdata", ".musicxml"], this);
-                string[] files = [path]; // 暂且只支持一个一个地选
+                string[] files = [path]; // Currently only single-file import is supported
                 if (string.IsNullOrEmpty(path))
                 {
                     return;
@@ -408,21 +404,21 @@ public partial class EditPage
                     if (loadedProjects == null || loadedProjects.Length == 0) {
                         return;
                     }
-                    // 为新项目导入曲速，否则询问用户
-                    bool importTempo = DocManager.Inst.Project.parts.Count == 0; // 当前是新项目（没有分片）则直接导入曲速
+                    // For a new empty project, import tempo automatically; otherwise ask the user
+                    bool importTempo = DocManager.Inst.Project.parts.Count == 0; // Empty project: import tempo directly
                     if (!importTempo && loadedProjects[0].tempos.Count > 0) {
                         var tempoString = string.Join("\n",
                             loadedProjects[0].tempos
-                                .Select(tempo => $"位于 {tempo.position} 的曲速标记为 {tempo.bpm}")
+                                .Select(tempo => $"Tempo marker at {tempo.position}: {tempo.bpm} BPM")
                         );
-                        // 询问用户是否导入曲速
+                        // Ask the user whether to import tempo
                         importTempo = await DisplayAlert(AppResources.ImportTracksCaption, AppResources.AskIfImportTempo + '\n' + tempoString, AppResources.Confirm,
                             AppResources.CancelText);
                     }
                     _viewModel.ImportTracks(loadedProjects, importTempo);
                 } catch (Exception ex) {
-                    Log.Error(ex, $"导入轨道失败\n文件：{string.Join(", ", files)}\n错误：{ex.Message}");
-                    DocManager.Inst.ExecuteCmd(new ErrorMessageNotification("导入轨道失败：", ex));
+                    Log.Error(ex, $"Failed to import tracks\nFiles: {string.Join(", ", files)}\nError: {ex.Message}");
+                    DocManager.Inst.ExecuteCmd(new ErrorMessageNotification("Failed to import tracks: ", ex));
                 }
                 break;
             }
@@ -454,7 +450,7 @@ public partial class EditPage
                 break;
             }
             default:
-                Debug.WriteLine($"未知的操作: {action}");
+                Console.WriteLine($"Unknown action: {action}");
                 break;
         }
     }
@@ -475,7 +471,7 @@ public partial class EditPage
     private async Task AttemptExit()
     {
         if (DocManager.Inst.ChangesSaved)
-        { // 如果已经保存，直接关闭
+        { // All changes saved — close immediately
             if (Preferences.Default.ClearCacheOnQuit)
             {
                 Log.Information("Clearing cache...");
@@ -488,11 +484,11 @@ public partial class EditPage
             return;
         }
         if (!await AskIfSaveAndContinue())
-        { // 询问是否保存
-            return; // 如果’取消’，则不关闭
+        { // Ask the user whether to save
+            return; // User chose Cancel — do not close
         }
         DocManager.Inst.RemoveSubscriber(this); // ページ離脱前に通知を遮断 (CR3-17)
-        await Navigation.PopModalAsync(); // 不保存，直接退出
+        await Navigation.PopModalAsync(); // Exit without saving
         Dispose(); // (B-02) 保存なし離脱パスでも完全破棄を保証
     }
 
@@ -507,18 +503,18 @@ public partial class EditPage
                 case "save":
                     if (await Save())
                     {
-                        return true; // 保存成功，继续关闭
+                        return true; // Save succeeded — proceed with close
                     }
                     else
                     {
-                        return false; // 保存失败或取消，取消关闭
+                        return false; // Save failed or cancelled — abort close
                     }
                 case "discard":
-                    return true; // 不保存，继续关闭
+                    return true; // Discard changes — proceed with close
                 case "cancel":
-                    return false; // 取消关闭
+                    return false; // Cancel — abort close
                 default:
-                    return false; // 取消关闭
+                    return false; // Unknown action — abort close
             }
         }
         return false;
@@ -699,7 +695,7 @@ public partial class EditPage
                 }
                 catch (Exception ex)
                 {
-                    Log.Error(ex, "未能更改音素器");
+                    Log.Error(ex, "Failed to change phonemizer");
                     DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(ex));
                 }
                 finally
@@ -815,8 +811,8 @@ public partial class EditPage
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "干声转换失败");
-            DocManager.Inst.ExecuteCmd(new ErrorMessageNotification("干声转换失败：", ex));
+            Log.Error(ex, "Dry voice conversion failed");
+            DocManager.Inst.ExecuteCmd(new ErrorMessageNotification("Dry voice conversion failed: ", ex));
         }
     }
 

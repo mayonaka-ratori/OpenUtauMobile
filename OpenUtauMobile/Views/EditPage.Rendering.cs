@@ -23,10 +23,8 @@ namespace OpenUtauMobile.Views;
 public partial class EditPage
 {
     /// <summary>
-    /// 走带画布重绘
+    /// Redraws the track canvas.
     /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
     private void TrackCanvas_PaintSurface(object sender, SkiaSharp.Views.Maui.SKPaintSurfaceEventArgs e)
     {
 #if DEBUG
@@ -34,20 +32,20 @@ public partial class EditPage
 #endif
         try
         {
-        // 清空画布
+        // Clear canvas
         e.Surface.Canvas.Clear(SKColors.Transparent);
-        if (e.Surface.Canvas.DeviceClipBounds.Height < 5) // 没办法，提高性能
+        if (e.Surface.Canvas.DeviceClipBounds.Height < 5) // Early exit for near-zero height — avoids unnecessary work
         {
             return;
         }
-        // 设置画布变换
+        // Apply canvas transform
         e.Surface.Canvas.SetMatrix(_viewModel.TrackTransformer.GetTransformMatrix());
-        // 绘制轨道分割线（キャッシュ済みインスタンスを再利用）
+        // Draw track separator lines (reuse cached instance)
         _drawableTrackBackground ??= new DrawableTrackBackground(e.Surface.Canvas, _viewModel.HeightPerTrack * _viewModel.Density);
         _drawableTrackBackground.Canvas = e.Surface.Canvas;
         _drawableTrackBackground.HeightPerTrack = _viewModel.HeightPerTrack * _viewModel.Density;
         _drawableTrackBackground.Draw();
-        // 清空可绘制对象集合
+        // Clear the drawable-parts collection
         _viewModel.DrawableParts.Clear();
         // キャッシュから削除されたパートのエントリを除去（P2-C3: .Where().ToList() → 再利用バッファで毎フレームアロケーション排除）
         var currentParts = DocManager.Inst.Project.parts;
@@ -62,7 +60,7 @@ public partial class EditPage
             _drawablePartCache[staleKey].Dispose();
             _drawablePartCache.Remove(staleKey);
         }
-        // 绘制分片（DrawablePart インスタンスを UPart ごとにキャッシュ）
+        // Draw parts (DrawablePart instances cached per UPart)
         foreach (UPart part in currentParts)
         {
             bool isResizeable = _viewModel.SelectedParts.Contains(part) && _viewModel.CurrentTrackEditMode == TrackEditMode.Edit;
@@ -93,18 +91,18 @@ public partial class EditPage
 #endif
         try
         {
-        // 清空画布
+        // Clear canvas
         e.Surface.Canvas.Clear(SKColors.Transparent);
         if (e.Surface.Canvas.DeviceClipBounds.Height < 5)
         {
-            // 提高性能
+            // Early exit for near-zero height
             return;
         }
         if (_viewModel.SelectedParts.Count == 0)
         {
-            return; // 如果没有选中分片，直接返回
+            return; // No selected part — nothing to draw
         }
-        // 设置画布变换
+        // Apply canvas transform
         //e.Surface.Canvas.SetMatrix(_viewModel.PianoRollTransformer.GetTransformMatrix());
         if (_viewModel.SelectedParts[0] is UVoicePart part)
         {
@@ -141,9 +139,9 @@ public partial class EditPage
         var _sw = PaintSurfaceProfiler.Start();
 #endif
         SKCanvas Canvas = e.Surface.Canvas;
-        // 清空画布
+        // Clear canvas
         Canvas.Clear(SKColors.Transparent);
-        // 计算位置
+        // Compute playback-line X position
         float x = (float)(_viewModel.PlayPosTick * _viewModel.TrackTransformer.ZoomX + _viewModel.TrackTransformer.PanX);
         Canvas.DrawLine(x, 0f, x, Canvas.DeviceClipBounds.Height, _playbackPosPaint);
 #if DEBUG
@@ -231,7 +229,7 @@ public partial class EditPage
             Canvas.DrawRect(0, y, width, heightPerPianoKey * zoomY, _pianoKeysPaint);
             y += heightPerPianoKey * zoomY;
         }
-        // 绘制键名文本
+        // Draw key-name labels
         y = (float)(topKeyNum + 0.5f) * heightPerPianoKey * zoomY + panY;
         //heightPerPianoKey = heightPerPianoKey * zoomY;
         PianoKey? drawingKey = null;
@@ -249,7 +247,7 @@ public partial class EditPage
             }
             y += heightPerPianoKey * zoomY;
         }
-        // 恢复变换矩阵
+        // (Transform matrix reset not needed here)
         //Canvas.SetMatrix(originalMatrix);
     }
 
@@ -537,7 +535,7 @@ public partial class EditPage
         SKCanvas canvas = e.Surface.Canvas;
         canvas.Clear(ThemeColorsManager.Current.WhitePianoRollBackground);
         //canvas.SetMatrix(_viewModel.GetTransformMatrix());
-        // 只绘制黑键对应的背景，提高性能
+        // Only draw backgrounds for black-key rows (performance)
         float heightPerPianoKey = (float)(_viewModel.HeightPerPianoKey * _viewModel.Density);
         float viewTop = -_viewModel.PianoRollTransformer.PanY / _viewModel.PianoRollTransformer.ZoomY;
         float viewBottom = viewTop + canvas.DeviceClipBounds.Size.Height / _viewModel.PianoRollTransformer.ZoomY;
@@ -558,10 +556,8 @@ public partial class EditPage
     }
 
     /// <summary>
-    /// 音高线画布重绘
+    /// Redraws the pitch curve canvas.
     /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
     private void PianoRollPitchCanvas_PaintSurface(object sender, SkiaSharp.Views.Maui.SKPaintSurfaceEventArgs e)
     {
 #if DEBUG
@@ -573,19 +569,19 @@ public partial class EditPage
         canvas.Clear();
         if (_viewModel.EditingPart == null || _viewModel.EditingPart is not UVoicePart)
         {
-            return; // 如果没有选中分片，直接返回
+            return; // No part being edited — nothing to draw
         }
         if (_viewModel.CurrentNoteEditMode == NoteEditMode.EditNote)
         {
-            return; // 如果当前是编辑音符模式，直接返回
+            return; // Note-edit mode — pitch overlay not shown
         }
-        float pitchDisplayPrecision = Preferences.Default.PitchDisplayPrecision; // 显示精度
+        float pitchDisplayPrecision = Preferences.Default.PitchDisplayPrecision; // display precision
 
         int leftTick = (int)(-_viewModel.PianoRollTransformer.PanX / _viewModel.PianoRollTransformer.ZoomX);
         int rightTick = (int)(canvas.DeviceClipBounds.Size.Width / _viewModel.PianoRollTransformer.ZoomX + leftTick);
 
-        const int interval = 5; // 每5个tick一个点
-        foreach (RenderPhrase phrase in _viewModel.EditingPart.renderPhrases) // 遍历所有Phrase
+        const int interval = 5; // One sample point per 5 ticks
+        foreach (RenderPhrase phrase in _viewModel.EditingPart.renderPhrases) // Iterate over all render phrases
         {
             if (phrase.position > rightTick || phrase.end < leftTick)
             {
@@ -595,7 +591,7 @@ public partial class EditPage
             int startIdx = Math.Max(0, (leftTick - pitchStartTick) / interval);
             int endIdx = Math.Min(phrase.pitches.Length, (rightTick - pitchStartTick) / interval + 1);
             _pitchLinePath.Reset();
-            // 计算i步进
+            // Compute step size
             int step = Math.Max(1, (int)(pitchDisplayPrecision / _viewModel.PianoRollTransformer.ZoomX));
             bool isFirstPoint = true;
             for (int i = startIdx; i < endIdx; i += step)
@@ -615,7 +611,7 @@ public partial class EditPage
             }
             canvas.DrawPath(_pitchLinePath, _pitchLinePaint);
         }
-        // 绘制触摸中心
+        // Draw touch-point indicator
         if (IsUserDrawingCurve)
         {
             canvas.DrawCircle(TouchingPoint, 10f, _touchCursorPaint);
@@ -649,10 +645,8 @@ public partial class EditPage
     }
 
     /// <summary>
-    /// 音素画布重绘
+    /// Redraws the phoneme canvas.
     /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
     private void PhonemeCanvas_PaintSurface(object sender, SkiaSharp.Views.Maui.SKPaintSurfaceEventArgs e)
     {
 #if DEBUG
@@ -661,7 +655,7 @@ public partial class EditPage
         try
         {
         SKCanvas canvas = e.Surface.Canvas;
-        // 清空画布
+        // Clear canvas
         canvas.Clear();
         UVoicePart? part = _viewModel.EditingPart;
         if (part == null)
@@ -678,7 +672,7 @@ public partial class EditPage
         _phonemeOutlinePaint.Color = ViewConstants.TrackSkiaColors[DocManager.Inst.Project.tracks[part.trackNo].TrackColor];
         _textFont12.Size = 12 * (float)_viewModel.Density;
         _textFont12.Typeface = ObjectProvider.NotoSansCJKscRegularTypeface;
-        // 遍历音素
+        // Iterate over phonemes
         foreach (var phoneme in part.phonemes)
         {
             double leftBound = project.timeAxis.MsPosToTickPos(phoneme.PositionMs - phoneme.preutter);
@@ -692,7 +686,7 @@ public partial class EditPage
             double posMs = phoneme.PositionMs;
             if (!phoneme.Error)
             {
-                // 预发声起始点 preutter
+                // Pre-utterance (preutter) start point
                 float x0 = _viewModel.PianoRollTransformer.LogicalToActual(_viewModel.PitchAndTickToPoint(timeAxis.MsPosToTickPos(posMs + phoneme.envelope.data[0].X), 0)).X;
                 float y0 = (1 - phoneme.envelope.data[0].Y / 100) * height;
                 // overlap
@@ -722,25 +716,25 @@ public partial class EditPage
                 _phonemeEnvelopePath.Close();
                 //Debug.WriteLine($"Phoneme {phoneme.phoneme} envelope points: \n0:{point0}, \n1:{point1}, \n2:{point2}, \n3:{point3}, \n4:{point4}");
                 //var polyline = new PolylineGeometry(new Point[] { point0, point1, point2, point3, point4 }, true);
-                // 音素多边形
+                // Phoneme polygon
                 //Debug.WriteLine($"Phoneme {phoneme.phoneme} from {x0} to {x4}");
                 canvas.DrawPath(_phonemeEnvelopePath, _phonemeOutlinePaint);
-                //    // preutter控制点
+                //    // preutter control point
                 //    brush = phoneme.preutterDelta.HasValue ? pen!.Brush : ThemeManager.BackgroundBrush;
                 //    using (var state = context.PushTransform(Matrix.CreateTranslation(x0, y + y0 - 1)))
                 //    {
                 //        context.DrawGeometry(brush, pen, pointGeometry);
                 //    }
-                //    // overlap控制点
+                //    // overlap control point
                 //    brush = phoneme.overlapDelta.HasValue ? pen!.Brush : ThemeManager.BackgroundBrush;
                 //    using (var state = context.PushTransform(Matrix.CreateTranslation(point1)))
                 //    {
                 //        context.DrawGeometry(brush, pen, pointGeometry);
                 //    }
                 //}
-                // 音素position竖线
+                // Phoneme position vertical line
                 canvas.DrawLine(new SKPoint(x, y), new SKPoint(x, y + height), _phonemePosLinePaint);
-                // 音素文本
+                // Phoneme label text
                 string displayPhoneme = phoneme.phonemeMapped ?? phoneme.phoneme;
                 canvas.DrawText(displayPhoneme, x + 2, 15 * (float)_viewModel.Density, _textFont12, ThemeColorsManager.Current.PhonemeTextPaint);
             }
@@ -765,16 +759,17 @@ public partial class EditPage
         canvas.Clear();
         if (e.Surface.Canvas.DeviceClipBounds.Height < 5)
         {
-            // 提高性能
+            // Early exit for near-zero height
             return;
         }
-        // 1. 初始化和验证
-        // 2. 计算可视区域
-        // 3. 根据表情类型分别处理：
-        //    - 曲线型 (UExpressionType.Curve)
-        //    - 数值型/选项型 (UExpressionType.Numerical/Options)
+        // Steps:
+        // 1. Validate state
+        // 2. Compute viewport
+        // 3. Dispatch by expression type:
+        //    - Curve (UExpressionType.Curve)
+        //    - Numerical / Options (UExpressionType.Numerical/Options)
 
-        // 初始化和验证
+        // Validate state
         if (_viewModel.EditingPart == null)
         {
             return;
@@ -785,7 +780,7 @@ public partial class EditPage
         {
             return;
         }
-        if (!track.TryGetExpDescriptor(project, _viewModel.PrimaryExpressionAbbr, out var descriptor)) // 尝试从名称（如DYN）获取描述器
+        if (!track.TryGetExpDescriptor(project, _viewModel.PrimaryExpressionAbbr, out var descriptor)) // Retrieve expression descriptor by abbreviation (e.g. DYN)
         {
             return;
         }
@@ -793,16 +788,16 @@ public partial class EditPage
         {
             return;
         }
-        // 计算视口
+        // Compute viewport
         int leftTick = (int)(-_viewModel.PianoRollTransformer.PanX / _viewModel.PianoRollTransformer.ZoomX);
         int rightTick = (int)(canvas.DeviceClipBounds.Size.Width / _viewModel.PianoRollTransformer.ZoomX + leftTick);
         float descriptorRange = descriptor.max - descriptor.min;
-        // 曲线型
+        // Curve-type expression
         if (descriptor.type == UExpressionType.Curve)
         {
-            UCurve? curve = _viewModel.EditingPart.curves.FirstOrDefault(c => c.descriptor == descriptor); // 选出对应表情的curve
+            UCurve? curve = _viewModel.EditingPart.curves.FirstOrDefault(c => c.descriptor == descriptor); // Select the curve for this expression
             float defaultHeight = (float)Math.Round(canvas.DeviceClipBounds.Height - canvas.DeviceClipBounds.Height * (descriptor.defaultValue - descriptor.min) / (descriptor.max - descriptor.min));
-            // 如果没有绘制过，就画默认值
+            // No curve found — draw a horizontal line at the default value
             if (curve == null)
             {
                 //float x1 = (float)Math.Round(_viewModel.PianoRollTransformer.LogicalToActual(_viewModel.PitchAndTickToPoint(leftTick, 0)).X);
@@ -821,7 +816,7 @@ public partial class EditPage
                 index = -index - 1;
             }
             index = Math.Max(0, index) - 1;
-            // 分段线条绘制
+            // Draw segmented curve lines
             while (index < curve.xs.Count)
             {
                 int tick1 = index < 0 ? lTick : curve.xs[index] + _viewModel.EditingPart.position;
@@ -834,7 +829,7 @@ public partial class EditPage
                 float value2 = index == curve.xs.Count - 1 ? descriptor.defaultValue : curve.ys[index + 1];
                 float x2 = _viewModel.PianoRollTransformer.LogicalToActualX(tick2);
                 float y2 = (descriptor.max - value2) * canvas.DeviceClipBounds.Height / descriptorRange;
-                SKPaint paint = value1 == descriptor.defaultValue && value2 == descriptor.defaultValue ? ThemeColorsManager.Current.DefaultExpressionStrokePaint : ThemeColorsManager.Current.EditedExpressionStrokePaint; // 绘制值用粗线，默认值用细线
+                SKPaint paint = value1 == descriptor.defaultValue && value2 == descriptor.defaultValue ? ThemeColorsManager.Current.DefaultExpressionStrokePaint : ThemeColorsManager.Current.EditedExpressionStrokePaint; // Thick stroke for edited values, thin for default
                 canvas.DrawLine(new SKPoint(x1, y1), new SKPoint(x2, y2), paint);
                 //using (var state = canvas.PushTransform(Matrix.CreateTranslation(x1, y1))) {
                 //    canvas.DrawGeometry(brush, null, pointGeometry);
@@ -845,76 +840,76 @@ public partial class EditPage
                     break;
                 }
             }
-            // 绘制触摸中心
+            // Draw touch-point indicator
             if (isDrawingExpression)
             {
                 float radius = 10f;
                 canvas.DrawCircle(drawingExpressionPointer, radius, ThemeColorsManager.Current.DrawingCursorPaint);
                 _textFont12.Size = 12 * (float)_viewModel.Density;
                 _textFont12.Typeface = ObjectProvider.NotoSansCJKscRegularTypeface;
-                // 绘制数値
+                // Draw current value label
                 canvas.DrawText($"{_viewModel.currentExpressionValue}", drawingExpressionPointer.X - 12f, drawingExpressionPointer.Y - 12f, _textFont12, ThemeColorsManager.Current.ExpressionOptionTextPaint);
             }
             return;
         }
-        float innerRadius = 6 * (float)_viewModel.Density; // 圆圈内半径
-        float outerRadius = 12 * (float)_viewModel.Density; // 圆圈外半径
+        float innerRadius = 6 * (float)_viewModel.Density; // Inner circle radius
+        float outerRadius = 12 * (float)_viewModel.Density; // Outer circle radius
         float optionHeight = 0;
         if (descriptor.type == UExpressionType.Options)
         {
-            optionHeight = canvas.DeviceClipBounds.Height / descriptor.options.Length; // 每个选项的高度
+            optionHeight = canvas.DeviceClipBounds.Height / descriptor.options.Length; // Height per option row
         }
-        // 遍历音素，包括选项型和数值型
+        // Iterate over phonemes for both Options- and Numerical-type expressions
         foreach (UPhoneme phoneme in _viewModel.EditingPart.phonemes)
         {
-            if (phoneme.Error || phoneme.Parent == null) // 跳过错误音素
+            if (phoneme.Error || phoneme.Parent == null) // Skip phonemes with errors
             {
                 continue;
             }
-            double leftBound = phoneme.position + _viewModel.EditingPart.position; // 音素左边界
-            double rightBound = phoneme.End + _viewModel.EditingPart.position; // 音素右边界
+            double leftBound = phoneme.position + _viewModel.EditingPart.position; // Phoneme left boundary
+            double rightBound = phoneme.End + _viewModel.EditingPart.position; // Phoneme right boundary
             if (leftBound >= rightTick || rightBound <= leftTick)
             {
-                continue; // 跳过不可见音素
+                continue; // Phoneme out of view — skip
             }
             (float value, bool overriden) = phoneme.GetExpression(project, track, descriptor.abbr);
             float x1 = _viewModel.PianoRollTransformer.LogicalToActualX(phoneme.position + _viewModel.EditingPart.position);
             float x2 = _viewModel.PianoRollTransformer.LogicalToActualX(phoneme.End + _viewModel.EditingPart.position);
-            // 数值型
+            // Numerical-type expression
             if (descriptor.type == UExpressionType.Numerical)
             {
                 float valueHeight = (descriptor.max - value) * canvas.DeviceClipBounds.Height / descriptorRange;
                 canvas.DrawLine(x1, canvas.DeviceClipBounds.Height, x1, valueHeight, ThemeColorsManager.Current.EditedExpressionStrokePaint);
                 canvas.DrawLine(x1, valueHeight, x2, valueHeight, ThemeColorsManager.Current.EditedExpressionStrokePaint);
             }
-            // 选项型
+            // Options-type expression
             else if (descriptor.type == UExpressionType.Options)
             {
                 x1 += outerRadius;
-                for (int i = 0; i < descriptor.options.Length; ++i) // 对于每一个选项
+                for (int i = 0; i < descriptor.options.Length; ++i) // For each option
                 {
                     float y = optionHeight * (descriptor.options.Length - 1 - i + 0.5f);
-                    if ((int)value == i) // 选中的
+                    if ((int)value == i) // Selected option
                     {
-                        if (overriden) // 被编辑过的
+                        if (overriden) // Overridden (edited)
                         {
                             canvas.DrawCircle(x1, y, outerRadius, ThemeColorsManager.Current.EditedExpressionStrokePaint);
                             canvas.DrawCircle(x1, y, innerRadius, ThemeColorsManager.Current.EditedExpressionFillPaint);
                         }
-                        else // 未被编辑过的
+                        else // Not overridden (default value)
                         {
                             canvas.DrawCircle(x1, y, outerRadius, ThemeColorsManager.Current.DefaultExpressionStrokePaint);
                             canvas.DrawCircle(x1, y, innerRadius, ThemeColorsManager.Current.DefaultExpressionFillPaint);
                         }
                     }
-                    else // 未选中的
+                    else // Unselected option
                     {
                         canvas.DrawCircle(x1, y, outerRadius, ThemeColorsManager.Current.DefaultExpressionStrokePaint);
                     }
                 }
             }
         }
-        // 选项型的背景框和文字
+        // Options-type: background box and label text
         if (descriptor.type == UExpressionType.Options)
         {
             const int fontSize = 12;
@@ -923,7 +918,7 @@ public partial class EditPage
             _textFont12.Typeface = ObjectProvider.NotoSansCJKscRegularTypeface;
             for (int i = 0; i < descriptor.options.Length; ++i)
             {
-                string optionText = descriptor.options[i]; // 选项文字
+                string optionText = descriptor.options[i]; // Option label text
                 if (string.IsNullOrEmpty(optionText))
                 {
                     optionText = "\"\"";
@@ -936,14 +931,14 @@ public partial class EditPage
                 canvas.DrawText(optionText, x + 4, y + 14 * (float)_viewModel.Density, _textFont12, ThemeColorsManager.Current.ExpressionOptionTextPaint);
             }
         }
-        // 绘制触摸中心
+        // Draw touch-point indicator
         if (isDrawingExpression)
         {
             float radius = 10f;
             canvas.DrawCircle(drawingExpressionPointer, radius, ThemeColorsManager.Current.DrawingCursorPaint);
             _textFont12.Size = 12 * (float)_viewModel.Density;
             _textFont12.Typeface = ObjectProvider.NotoSansCJKscRegularTypeface;
-            // 绘制数値
+            // Draw current value label
             canvas.DrawText($"{_viewModel.currentExpressionValue}", drawingExpressionPointer.X - 12f, drawingExpressionPointer.Y - 12f, _textFont12, ThemeColorsManager.Current.ExpressionOptionTextPaint);
         }
         }

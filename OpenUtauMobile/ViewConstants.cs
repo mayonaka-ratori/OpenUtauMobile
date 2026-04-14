@@ -13,13 +13,13 @@ namespace OpenUtauMobile
 {
     public static class ViewConstants
     {
-        public const string ReleaseVersionLyrics = "就算世界太多美好只一眨眼就变幻\n可回忆始终璀璨"; // v1.1.x 发布版本歌词
-        public const int MinTicklineWidth = 24; // 最小刻度线宽度
-        public const int TotalPianoKeys = 120; // 总钢琴键数
+        public const string ReleaseVersionLyrics = "就算世界太多美好只一眨眼就变幻\n可回忆始终璀璨"; // lyrics for v1.1.x release version
+        public const int MinTicklineWidth = 24; // minimum tick line width
+        public const int TotalPianoKeys = 120; // total number of piano keys
         public static List<PianoKey> PianoKeys = [];
-        public const int TimeLineHeight = 20; // 时间线高度，记得乘以Density
-        public const int PianoRollPlaybackLinePos = 200; // 播放线相对钢琴卷帘画布左侧的位置，记得乘以Density
-        public const int DivHeight = 50; // 走带与主编辑区分隔的高度，Canvas里面记得乘以Density
+        public const int TimeLineHeight = 20; // timeline height; multiply by Density in canvas
+        public const int PianoRollPlaybackLinePos = 200; // playback line X offset from piano roll left edge; multiply by Density
+        public const int DivHeight = 50; // track/main-edit divider height; multiply by Density in canvas
         public static List<LanguageOption> LanguageOptions = [
             new LanguageOption("English(US)", "en"),
             new LanguageOption("简体中文", "zh"),
@@ -41,9 +41,9 @@ namespace OpenUtauMobile
         //    { 10, 70 }, // A#4
         //    { 11, 71 }, // B4
         //};
-        #region 轨道颜色常量
+        #region Track color constants
         /// <summary>
-        /// 轨道颜色，Maui版本
+        /// Track colors, MAUI version.
         /// </summary>
         public static readonly Dictionary<string, Color> TrackMauiColors = new()
         {
@@ -67,7 +67,7 @@ namespace OpenUtauMobile
             { "Purple2", Color.FromRgba("#7B1FA2")},
         };
         /// <summary>
-        /// 轨道颜色，SkiaSharp版本
+        /// Track colors, SkiaSharp version.
         /// </summary>
         public static readonly Dictionary<string, SKColor> TrackSkiaColors = TrackMauiColors.ToDictionary(kv => kv.Key, kv => SKColor.Parse(kv.Value.ToHex()));
         #endregion

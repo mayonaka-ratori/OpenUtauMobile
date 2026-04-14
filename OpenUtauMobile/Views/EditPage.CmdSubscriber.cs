@@ -20,7 +20,7 @@ public partial class EditPage
 {
     public void OnNext(UCommand cmd, bool isUndo)
     {
-        // iOS 需要确保 UI 更新在主线程执行
+        // UI updates must run on the main thread
         MainThread.BeginInvokeOnMainThread(() =>
         {
         if (cmd is SetPlayPosTickNotification setPlayPosTickNotification)
@@ -44,7 +44,7 @@ public partial class EditPage
         {
             _viewModel.HandleSelectedNotesChanged();
             PianoRollCanvas.InvalidateSurface();
-            TrackCanvas.InvalidateSurface(); // 重绘走带画布
+            TrackCanvas.InvalidateSurface(); // Redraw track canvas
             PianoRollPitchCanvas.InvalidateSurface();
         }
         else if (cmd is MoveNoteCommand moveNoteCommand)
@@ -63,21 +63,21 @@ public partial class EditPage
         {
             UpdateTrackCanvasPanLimit();
             UpdatePianoRollCanvasPanLimit();
-            TrackCanvas.InvalidateSurface(); // 重绘走带画布
-            PianoRollCanvas.InvalidateSurface(); // 重绘钢琴卷帘画布
+            TrackCanvas.InvalidateSurface(); // Redraw track canvas
+            PianoRollCanvas.InvalidateSurface(); // Redraw piano roll canvas
             PianoRollPitchCanvas.InvalidateSurface();
             PianoRollTickBackgroundCanvas.InvalidateSurface();
         }
         else if (cmd is AddPartCommand addPartCommand)
         {
-            TrackCanvas.InvalidateSurface(); // 重绘走带画布
+            TrackCanvas.InvalidateSurface(); // Redraw track canvas
         }
         else if (cmd is ResizePartCommand resizePartCommand)
         {
             UpdateTrackCanvasPanLimit();
             UpdatePianoRollCanvasPanLimit();
             TrackCanvas.InvalidateSurface();
-            PianoRollCanvas.InvalidateSurface(); // 重绘钢琴卷帘画布
+            PianoRollCanvas.InvalidateSurface(); // Redraw piano roll canvas
             PianoRollTickBackgroundCanvas.InvalidateSurface();
         }
         else if (cmd is RemovePartCommand removePartCommand)
@@ -92,14 +92,14 @@ public partial class EditPage
             _viewModel.UpdateIsShowRenderPitchButton();
             UpdateTrackCanvasPanLimit();
             UpdatePianoRollCanvasPanLimit();
-            TrackCanvas.InvalidateSurface(); // 重绘走带画布
-            PianoRollCanvas.InvalidateSurface(); // 重绘钢琴卷帘画布
+            TrackCanvas.InvalidateSurface(); // Redraw track canvas
+            PianoRollCanvas.InvalidateSurface(); // Redraw piano roll canvas
             PianoRollPitchCanvas.InvalidateSurface();
             PianoRollTickBackgroundCanvas.InvalidateSurface();
         }
         else if (cmd is RenamePartCommand renamePartCommand)
         {
-            TrackCanvas.InvalidateSurface(); // 重绘走带画布
+            TrackCanvas.InvalidateSurface(); // Redraw track canvas
         }
         else if (cmd is AddTrackCommand addTrackCommand)
         {
@@ -150,11 +150,11 @@ public partial class EditPage
         }
         else if (cmd is RemoveTrackCommand removeTrackCommand)
         {
-            _viewModel.ValidateSelectedParts(); // 验证选中分片中是否有被删除的分片
+            _viewModel.ValidateSelectedParts(); // Remove any deleted parts from the selection
             _viewModel.RefreshTrack();
             _viewModel.HandleSelectedNotesChanged();
             TrackCanvas.InvalidateSurface();
-            PianoRollCanvas.InvalidateSurface(); // 重绘钢琴卷帘画布
+            PianoRollCanvas.InvalidateSurface(); // Redraw piano roll canvas
             UpdateTrackCanvasZoomLimit();
             PianoRollPitchCanvas.InvalidateSurface();
             PhonemeCanvas.InvalidateSurface();
@@ -167,31 +167,31 @@ public partial class EditPage
                 _viewModel.Tracks.Insert(trackChangeSingerCommand.track.TrackNo, trackChangeSingerCommand.track);
             }
             _viewModel.UpdateIsShowRenderPitchButton();
-            TrackCanvas.InvalidateSurface(); // 重绘走带画布
-            PianoRollCanvas.InvalidateSurface(); // 重绘钢琴卷帘画布
+            TrackCanvas.InvalidateSurface(); // Redraw track canvas
+            PianoRollCanvas.InvalidateSurface(); // Redraw piano roll canvas
             _viewModel.LoadPortrait();
         }
         else if (cmd is AddTempoChangeCommand addTempoChangeCommand)
         {
-            TrackCanvas.InvalidateSurface(); // 重绘走带画布
+            TrackCanvas.InvalidateSurface(); // Redraw track canvas
             PlaybackTickBackgroundCanvas.InvalidateSurface();
             RefreshProjectInfoDisplay();
         }
         else if (cmd is AddTimeSigCommand addTimeSigCommand)
         {
-            TrackCanvas.InvalidateSurface(); // 重绘走带画布
+            TrackCanvas.InvalidateSurface(); // Redraw track canvas
             PlaybackTickBackgroundCanvas.InvalidateSurface();
             RefreshProjectInfoDisplay();
         }
         else if (cmd is BpmCommand bpmCommand)
         {
-            TrackCanvas.InvalidateSurface(); // 重绘走带画布
+            TrackCanvas.InvalidateSurface(); // Redraw track canvas
             PlaybackTickBackgroundCanvas.InvalidateSurface();
             RefreshProjectInfoDisplay();
         }
         else if (cmd is TimeSignatureCommand timeSigCommand)
         {
-            TrackCanvas.InvalidateSurface(); // 重绘走带画布
+            TrackCanvas.InvalidateSurface(); // Redraw track canvas
             PlaybackTickBackgroundCanvas.InvalidateSurface();
             RefreshProjectInfoDisplay();
         }
@@ -216,8 +216,8 @@ public partial class EditPage
         else if (cmd is ChangeTrackColorCommand changeTrackColorCommand)
         {
             _viewModel.RefreshTrack(changeTrackColorCommand.track);
-            TrackCanvas.InvalidateSurface(); // 重绘走带画布
-            PianoRollCanvas.InvalidateSurface(); // 重绘钢琴卷帘画布
+            TrackCanvas.InvalidateSurface(); // Redraw track canvas
+            PianoRollCanvas.InvalidateSurface(); // Redraw piano roll canvas
             ExpressionCanvas.InvalidateSurface();
             if (_viewModel.EditingPart == null)
                 return;

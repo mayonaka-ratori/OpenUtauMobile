@@ -21,13 +21,13 @@ namespace OpenUtauMobile
     {
         public static MauiApp CreateMauiApp()
         {
-            // 注册编码提供程序
+            // Register encoding provider
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             var builder = MauiApp.CreateBuilder();
             builder
                 .UseMauiApp<App>()
-                .UseMauiCommunityToolkit() // 使用MauiCommunityToolkit
-                .UseSkiaSharp() // 使用SkiaSharp绘图
+                .UseMauiCommunityToolkit() // Use MauiCommunityToolkit
+                .UseSkiaSharp() // Use SkiaSharp for rendering
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -41,16 +41,16 @@ namespace OpenUtauMobile
 
             InitLogging(); //
 
-            Log.Information("操作系统：" + DeviceInfo.Current.Platform.ToString()); // 操作系统
-            Log.Information("操作系统版本：" + DeviceInfo.Current.VersionString); // 操作系统版本
-            Log.Information("制造商：" + DeviceInfo.Current.Manufacturer); // 制造商
-            Log.Information("设备型号：" + DeviceInfo.Current.Model); // 型号
+            Log.Information("OS: " + DeviceInfo.Current.Platform.ToString());
+            Log.Information("OS version: " + DeviceInfo.Current.VersionString);
+            Log.Information("Manufacturer: " + DeviceInfo.Current.Manufacturer);
+            Log.Information("Model: " + DeviceInfo.Current.Model);
 
             return builder.Build();
         }
 
         /// <summary>
-        /// 初始化日志记录
+        /// Initialises the Serilog logger and registers the global unhandled-exception handler.
         /// </summary>
         public static void InitLogging()
         {
@@ -59,13 +59,13 @@ namespace OpenUtauMobile
                 .WriteTo.Debug()
                 .WriteTo.Logger(lc => lc
                     .MinimumLevel.Information() // 
-                    .WriteTo.File(PathManager.Inst.LogFilePath, rollingInterval: RollingInterval.Day, encoding: Encoding.UTF8)) // 写入日志文件
+                    .WriteTo.File(PathManager.Inst.LogFilePath, rollingInterval: RollingInterval.Day, encoding: Encoding.UTF8)) // write to log file
                 //.WriteTo.Logger(lc => lc
                 //    .MinimumLevel.ControlledBy(DebugViewModel.Sink.Inst.LevelSwitch)
                 //    .WriteTo.Sink(DebugViewModel.Sink.Inst))
                 .CreateLogger();
             AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler((sender, args) => {
-                Log.Error((Exception)args.ExceptionObject, "未经处理的异常！"); // 未处理异常
+                Log.Error((Exception)args.ExceptionObject, "Unhandled exception"); // unhandled exception
                 DocManager.Inst.ExecuteCmd(new ErrorMessageNotification((Exception)args.ExceptionObject));
             });
             Log.Information("==========开始记录日志==========");

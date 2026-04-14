@@ -21,70 +21,70 @@ namespace OpenUtauMobile.ViewModels
     {
         private readonly CompositeDisposable _disposables = new();
         private bool _disposed = false;
-        /* UI 相关属性 */
+        /* UI-related properties */
         public double MainLayoutHeight { get; set; } = 1000d;
         public double MainEditHeight { get; set; } = 600d;
         public double PianoRollHeight { get; set; } = 800d;
-        #region 走带 - 主编辑区 拖拽间隔
+        #region Track - Main Edit Area Drag Divider
         [Reactive] public double DivPosY { get; set; } = 100d;
         [Reactive] public Rect BoundDiv { get; set; } = new Rect(0d, 100d, 1, 50d);
         [Reactive] public Rect BoundTrack { get; set; } = new Rect(0d, 0d, 1, 0d);
         [Reactive] public Rect BoundPianoRoll { get; set; } = new Rect(0d, 150d, 1, 0d);
         [Reactive] public Rect BoundDivControl { get; set; } = new Rect(0d, 100d, 60d, 50d);
         #endregion
-        #region 钢琴卷帘 - 扩展区 拖拽间隔
-        [Reactive] public double ExpHeight { get; set; } = 50d; // 不能直接用，因为是相对底部的高度
-        [Reactive] public double DivExpPosY { get; set; } // 根据 ExpHeight 动态计算
-        [Reactive] public Rect BoundExpDiv { get; set; } = new Rect(0d, 0d, 1, 50d); // 拖拽间隔
-        [Reactive] public Rect BoundExp { get; set; } = new Rect(0d, 0d, 1, 0d); // 扩展区
-        [Reactive] public Rect BoundExpDivControl { get; set; } = new Rect(0d, 0d, 60d, 50d); // 手柄
+        #region Piano Roll - Expression Area Drag Divider
+        [Reactive] public double ExpHeight { get; set; } = 50d; // Cannot use directly — this is relative to the bottom edge
+        [Reactive] public double DivExpPosY { get; set; } // Dynamically computed from ExpHeight
+        [Reactive] public Rect BoundExpDiv { get; set; } = new Rect(0d, 0d, 1, 50d); // Drag divider
+        [Reactive] public Rect BoundExp { get; set; } = new Rect(0d, 0d, 1, 0d); // Expression area
+        [Reactive] public Rect BoundExpDivControl { get; set; } = new Rect(0d, 0d, 60d, 50d); // Drag handle
         #endregion
         #region Transformers
         public Transformer TrackTransformer { get; set; } = new();
         public Transformer PianoRollTransformer { get; set; } = new();
         #endregion
         public double Density => DeviceDisplay.MainDisplayInfo.Density;
-        [Reactive] public double HeightPerTrack { get; set; } = 60d; // 每个轨道的高度
-        [Reactive] public double HeightPerPianoKey { get; set; } = 40d; // 每个钢琴键的高度
-        [Reactive] public bool IsOpenDetailedTrackHeader { get; set; } = false; // 是否打开详细轨道头部
-        [Reactive] public double AvatarSize { get; set; } = 35d; // 头像大小
-        [Reactive] public bool IsShowRemoveNoteButton { get; set; } = false; // 是否显示删除音符按钮
-        [Reactive] public bool IsShowRenderPitchButton { get; set; } = false; // 是否显示渲染音高按钮
-        [Reactive] public bool IsShowAudioTranscribeButton { get; set; } = false; // 是否显示干声转换按钮
+        [Reactive] public double HeightPerTrack { get; set; } = 60d; // Height per track
+        [Reactive] public double HeightPerPianoKey { get; set; } = 40d; // Height per piano key
+        [Reactive] public bool IsOpenDetailedTrackHeader { get; set; } = false; // Whether the detailed track header is open
+        [Reactive] public double AvatarSize { get; set; } = 35d; // Avatar size
+        [Reactive] public bool IsShowRemoveNoteButton { get; set; } = false; // Whether to show the Remove Note button
+        [Reactive] public bool IsShowRenderPitchButton { get; set; } = false; // Whether to show the Render Pitch button
+        [Reactive] public bool IsShowAudioTranscribeButton { get; set; } = false; // Whether to show the Audio Transcribe button
         [Reactive] public bool IsShowSelectButton { get; set; } = false;
-        public double OriginalVolume { get; set; } = 0d; // 保存原始音量
-        public int[] SnapDivs = [4, 8, 16, 32, 64, 128, 3, 6, 12, 24, 48, 96, 192]; // 常用量化单位数组
-        #region 编辑模式
+        public double OriginalVolume { get; set; } = 0d; // Stores the original volume before a pan gesture
+        public int[] SnapDivs = [4, 8, 16, 32, 64, 128, 3, 6, 12, 24, 48, 96, 192]; // Available quantization divisions
+        #region Edit Modes
         /// <summary>
-        /// 当前走带编辑模式
+        /// Current track edit mode.
         /// </summary>
-        [Reactive] public TrackEditMode CurrentTrackEditMode { get; set; } = TrackEditMode.Normal; // 默认为只读模式
+        [Reactive] public TrackEditMode CurrentTrackEditMode { get; set; } = TrackEditMode.Normal; // Default: read-only mode
         /// <summary>
-        /// 当前钢琴卷帘音符编辑模式
+        /// Current piano roll note edit mode.
         /// </summary>
-        [Reactive] public NoteEditMode CurrentNoteEditMode { get; set; } = NoteEditMode.EditNote; // 默认为音符编辑模式
+        [Reactive] public NoteEditMode CurrentNoteEditMode { get; set; } = NoteEditMode.EditNote; // Default: note-edit mode
         /// <summary>
-        /// 当前表情编辑模式
+        /// Current expression edit mode.
         /// </summary>
-        [Reactive] public ExpressionEditMode CurrentExpressionEditMode { get; set; } = ExpressionEditMode.Hand; // 默认为手模式
+        [Reactive] public ExpressionEditMode CurrentExpressionEditMode { get; set; } = ExpressionEditMode.Hand; // Default: hand mode
         [Reactive] public SelectionMode CurrentSelectMode { get; set; } = SelectionMode.Single;
         #endregion
-        [Reactive] public ObservableCollectionExtended<UPart> PhonemizingParts { get; set; } = []; // 正在进行音素化的分片集合
-        [Reactive] public string PhonemizingPartName { get; set; } = string.Empty; // 正在音素化的分片名称
-        [Reactive] public bool IsPhonemizing { get; set; } = false; // 是否正在音素化
-        [Reactive] public ObservableCollectionExtended<UPart> SelectedParts { get; set; } = []; // 选中的分片集合
-        [Reactive] public string EditingPartName { get; set; } = string.Empty; // 正在编辑的分片名称
-        [Reactive] public UVoicePart? EditingPart { get; set; } = null; // 正在编辑的分片
-        [Reactive] public ObservableCollectionExtended<UNote> SelectedNotes { get; set; } = []; // 选中的音符集合
+        [Reactive] public ObservableCollectionExtended<UPart> PhonemizingParts { get; set; } = []; // Parts currently being phonemized
+        [Reactive] public string PhonemizingPartName { get; set; } = string.Empty; // Name of the part currently being phonemized
+        [Reactive] public bool IsPhonemizing { get; set; } = false; // Whether phonemization is in progress
+        [Reactive] public ObservableCollectionExtended<UPart> SelectedParts { get; set; } = []; // Collection of selected parts
+        [Reactive] public string EditingPartName { get; set; } = string.Empty; // Name of the part currently being edited
+        [Reactive] public UVoicePart? EditingPart { get; set; } = null; // Part currently open in the piano roll
+        [Reactive] public ObservableCollectionExtended<UNote> SelectedNotes { get; set; } = []; // Collection of selected notes
         /// <summary>
-        /// 由SelectedNotes决定，请不要直接修改
+        /// Determined by SelectedNotes — do not modify directly.
         /// </summary>
-        [Reactive] public UNote? EditingNote { get; set; } = null; // 正在编辑的音符，用于将来的属性面板
-        #region 走带量化相关
-        [Reactive] public bool IsTrackSnapToGrid { get; set; } = true; // 走带是否启用对齐网格
-        [Reactive] public int TrackSnapDiv { get; set; } = 4; // 走带网格吸附密度 1/x 小节
+        [Reactive] public UNote? EditingNote { get; set; } = null; // Note being edited (for future properties panel)
+        #region Track Quantization
+        [Reactive] public bool IsTrackSnapToGrid { get; set; } = true; // Whether snap-to-grid is enabled for the track
+        [Reactive] public int TrackSnapDiv { get; set; } = 4; // Track grid snap density: 1/x bar
         /// <summary>
-        /// 当前走带量化状态下每个网格单位对应的tick长度
+        /// Tick length of one grid unit under the current track quantization.
         /// </summary>
         public int TrackSnapUnitTick
         {
@@ -92,17 +92,17 @@ namespace OpenUtauMobile.ViewModels
             {
                 if (TrackSnapDiv <= 0)
                 {
-                    return DocManager.Inst.Project.resolution * 4; // 默认返回一个小节的tick长度
+                    return DocManager.Inst.Project.resolution * 4; // Default: return one bar's tick length
                 }
                 return DocManager.Inst.Project.resolution * 4 / TrackSnapDiv;
             }
-        } // 每个网格单位对应的tick长度
+        } // Tick length per grid unit
         #endregion
-        #region 钢琴卷帘量化相关
-        [Reactive] public bool IsPianoRollSnapToGrid { get; set; } = true; // 钢琴卷帘是否启用对齐网格
-        [Reactive] public int PianoRollSnapDiv { get; set; } = 4; // 钢琴卷帘网格吸附密度 1/x 小节
+        #region Piano Roll Quantization
+        [Reactive] public bool IsPianoRollSnapToGrid { get; set; } = true; // Whether snap-to-grid is enabled for the piano roll
+        [Reactive] public int PianoRollSnapDiv { get; set; } = 4; // Piano roll grid snap density: 1/x bar
         /// <summary>
-        /// 当前钢琴卷帘量化状态下每个网格单位对应的tick长度
+        /// Tick length of one grid unit under the current piano roll quantization.
         /// </summary>
         public int PianoRollSnapUnitTick
         {
@@ -110,63 +110,63 @@ namespace OpenUtauMobile.ViewModels
             {
                 if (PianoRollSnapDiv <= 0)
                 {
-                    return DocManager.Inst.Project.resolution * 4; // 默认返回一个小节的tick长度
+                    return DocManager.Inst.Project.resolution * 4; // Default: return one bar's tick length
                 }
                 return DocManager.Inst.Project.resolution * 4 / PianoRollSnapDiv;
             }
-        } // 每个网格单位对应的tick长度
+        } // Tick length per grid unit
         #endregion
-        #region 移动分片字段
-        private SKPoint _startMovePartsPosition; // 用于记录开始拖动时的起始位置
-        private int _startMovePartsTrackNo; // 用于记录开始拖动时的起始轨道号
-        public bool IsMovingParts = false; // 是否正在移动分片
-        private List<int> _oldMovedPartsPos = []; // 保存移动开始时的分片position列表
-        private List<int> _oldMovedPartsTrackNo = []; // 保存移动开始时的分片trackNo列表
+        #region Move Part Fields
+        private SKPoint _startMovePartsPosition; // Starting position when drag begins
+        private int _startMovePartsTrackNo; // Starting track number when drag begins
+        public bool IsMovingParts = false; // Whether parts are currently being moved
+        private List<int> _oldMovedPartsPos = []; // Saves part positions at move start
+        private List<int> _oldMovedPartsTrackNo = []; // Saves part track numbers at move start
         private UndoScope? _movePartsUndoScope;
         #endregion
-        #region 创建分片字段
-        private SKPoint _startCreatePartPosition; // 用于记录开始创建分片时的起始位置
-        public bool IsCreatingPart = false; // 是否正在创建分片
+        #region Create Part Fields
+        private SKPoint _startCreatePartPosition; // Starting position when part creation begins
+        public bool IsCreatingPart = false; // Whether a part is currently being created
         private UndoScope? _createPartUndoScope;
         #endregion
-        #region 调整分片长度字段
-        private SKPoint _startResizePartPosition; // 用于记录开始调整分片长度时的起始位置
-        public bool IsResizingPart = false; // 是否正在调整分片长度
-        private UPart? _resizingPart; // 正在调整长度的分片
-        private int _resizingPartOriginalDuration; // 记录调整开始时的分片原始长度
+        #region Resize Part Fields
+        private SKPoint _startResizePartPosition; // Starting position when part resize begins
+        public bool IsResizingPart = false; // Whether a part is currently being resized
+        private UPart? _resizingPart; // Part currently being resized
+        private int _resizingPartOriginalDuration; // Original duration of the part at resize start
         private UndoScope? _resizePartUndoScope;
         #endregion
-        #region 调整音符长度字段
-        private UNote? _resizingNote; // 用于记录正在调整长度的音符
-        public bool IsResizingNote = false; // 是否正在调整音符长度
-        private int _initialBound2TouchOffset = 0; // 记录开始调整音符长度时，音符右边界到触摸点（逻辑）的初始x偏移量
+        #region Resize Note Fields
+        private UNote? _resizingNote; // Note currently being resized
+        public bool IsResizingNote = false; // Whether a note is currently being resized
+        private int _initialBound2TouchOffset = 0; // Initial X offset from the note's right edge to the touch point (logical coords) at resize start
         private UndoScope? _resizeNotesUndoScope;
         #endregion
-        #region 移动音符字段
-        private SKPoint _startMoveNotesPosition; // 用于记录开始拖动音符时的起始位置
-        public bool IsMovingNotes = false; // 是否正在移动音符
-        private int _originalPosition; // 记录调整开始时的音符原始位置
-        private int _startMoveNoteToneReversed; // 用于记录开始拖动音符时按住的那个音符的音高（不用减总琴键数）
-        private int _offsetPosition; // 保存上一次移动后的総位置偏移量，用于计算相对移动
-        private int _offsetTone; // 保存上一次移动后的総音高偏移量，用于计算相对移动
-                                 //private List<int> _originalNoteTones; // 记录调整开始时的音符原始音高
+        #region Move Note Fields
+        private SKPoint _startMoveNotesPosition; // Starting position when note drag begins
+        public bool IsMovingNotes = false; // Whether notes are currently being moved
+        private int _originalPosition; // Original position of the note at move start
+        private int _startMoveNoteToneReversed; // Tone of the touched note at drag start (raw, not offset by total key count)
+        private int _offsetPosition; // Cumulative position offset after last move — used to compute relative displacement
+        private int _offsetTone; // Cumulative tone offset after last move — used to compute relative displacement
+                                 //private List<int> _originalNoteTones; // Original tone of each note at move start
         private UndoScope? _moveNotesUndoScope;
         #endregion
-        #region 音高曲线字段
-        private int? _lastPitchTick; // 记录上一个音高点的tick位置
-        private double? _lastPitchValue; // 记录上一个音高点的音高值
+        #region Pitch Curve Fields
+        private int? _lastPitchTick; // Tick position of the last pitch point
+        private double? _lastPitchValue; // Pitch value of the last pitch point
         private UndoScope? _drawPitchUndoScope;
         #endregion
-        #region 表情参数绘制相关状态字段
+        #region Expression Drawing State Fields
         private int _lastExpTick = 0;
         private int _lastExpValue = 0;
         private UExpressionDescriptor? _editingExpressionDescriptor;
-        // 正在绘制的表情参数值
+        // Expression value currently being drawn
         public int currentExpressionValue = 0;
         private UndoScope? _drawExpressionUndoScope;
         private UndoScope? _resetExpressionUndoScope;
         #endregion
-        /* 后端数据相关属性 */
+        /* Backend data properties */
         [Reactive] public string Path { get; set; } = string.Empty;
         [Reactive] public ObservableCollectionExtended<UTrack> Tracks { get; set; } = [];
         //[Reactive] public ObservableCollectionExtended<UPart> Parts { get; set; } = [];
@@ -178,18 +178,18 @@ namespace OpenUtauMobile.ViewModels
         [Reactive] public double PortraitOpacity { get; set; } = 1d;
         public HashSet<DrawablePart> DrawableParts { get; set; } = [];
         /// <summary>
-        /// 正在钢琴卷帘窗中编辑的可绘制音符组对象，null表示没有正在编辑的音符组
+        /// DrawableNotes instance currently shown in the piano roll. Null when no part is being edited.
         /// </summary>
         public DrawableNotes? EditingNotes { get; set; }
         private static List<UNote> _clipboard = [];
-        [Reactive] public bool PlayPosWaitingRendering { get; set; } = false; // 等待渲染
+        [Reactive] public bool PlayPosWaitingRendering { get; set; } = false; // Waiting for render
         public double OriginalPan { get; internal set; }
-        [Reactive] public ObservableCollectionExtended<RunningWork> RunningWorks { get; set; } = []; // 正在运行的工作列表
+        [Reactive] public ObservableCollectionExtended<RunningWork> RunningWorks { get; set; } = []; // List of currently running background tasks
         [Reactive] public UExpressionDescriptor PrimaryExpressionDescriptor { get; set; } = null!;
         [Reactive] public UExpressionDescriptor SecondaryExpressionDescriptor { get; set; } = null!;
         [Reactive] public string PrimaryExpressionAbbr { get; set; } = string.Empty;
         [Reactive] public string SecondaryExpressionAbbr { get; set; } = string.Empty;
-        [Reactive] public Color EditingPartColor { get; set; } = Colors.Transparent; // 正在编辑的分片颜色
+        [Reactive] public Color EditingPartColor { get; set; } = Colors.Transparent; // Accent colour of the part currently being edited
         public void InitExpressions()
         {
             PrimaryExpressionDescriptor = DocManager.Inst.Project.expressions.FirstOrDefault().Value;
@@ -206,17 +206,17 @@ namespace OpenUtauMobile.ViewModels
             RunningWork? existingWork = RunningWorks.FirstOrDefault(w => w.Id == id);
             if (existingWork != null)
             {
-                // 如果已经存在相同ID的工作，则更新其属性
+                // Work with this ID already exists — update it
                 existingWork.Type = type;
                 existingWork.Progress = progress;
                 existingWork.Detail = detail;
-                // 触发属性变化通知
+                // Notify property change
                 this.RaisePropertyChanged(nameof(RunningWorks));
-                Console.WriteLine($"更新工作 {id}：类型={type}, 进度={progress}, 详情={detail}");
+                Console.WriteLine($"Update work {id}: type={type}, progress={progress}, detail={detail}");
             }
             else
             {
-                // 否则添加新的工作
+                // No existing entry — add a new work item
                 RunningWorks.Add(new RunningWork
                 {
                     Id = id,
@@ -225,7 +225,7 @@ namespace OpenUtauMobile.ViewModels
                     Detail = detail,
                     CancellationTokenSource = cancellationTokenSource
                 });
-                Console.WriteLine($"添加工作 {id}：类型={type}, 进度={progress}, 详情={detail}");
+                Console.WriteLine($"Add work {id}: type={type}, progress={progress}, detail={detail}");
             }
         }
 
@@ -235,7 +235,7 @@ namespace OpenUtauMobile.ViewModels
             if (workToRemove != null)
             {
                 RunningWorks.Remove(workToRemove);
-                Console.WriteLine($"移除工作 {id}");
+                Console.WriteLine($"Remove work {id}");
             }
         }
 
@@ -247,18 +247,18 @@ namespace OpenUtauMobile.ViewModels
                 return;
             }
             work.CancellationTokenSource.Cancel();
-            Console.WriteLine($"取消工作 {id}");
+            Console.WriteLine($"Cancel work {id}");
         }
 
 
 
         public EditViewModel()
         {
-            // 订阅 DivPosY 的变化
+            // Subscribe to DivPosY changes
             this.WhenAnyValue(x => x.DivPosY)
                 .Subscribe(_ => UpdateTrackMainEditBoundaries())
                 .DisposeWith(_disposables);
-            // 订阅 ExpHeight 的变化
+            // Subscribe to ExpHeight changes
             this.WhenAnyValue(x => x.ExpHeight)
                 .Subscribe(_ =>
                 {
@@ -266,12 +266,12 @@ namespace OpenUtauMobile.ViewModels
                     UpdatePianoRollExpBoundaries();
                 })
                 .DisposeWith(_disposables);
-            // 订阅正在音素化分片列表变化 - 监听集合变化
+            // Subscribe to phonemizing-parts list changes
             PhonemizingParts.CollectionChanged += OnPhonemizingPartsChanged;
-            // 订阅选中分片列表变化
+            // Subscribe to selected-parts list changes
             SelectedParts.CollectionChanged += OnSelectedPartsChanged;
-            // 订阅选中音符列表变化 更新编辑音符
-            // 这个订阅有bug或者是我的问题，有时候失效，后面再看吧。先加个手动触发的函数
+            // Subscribe to selected-notes list changes — update editing note
+            // Note: this subscription occasionally fails to fire — a manual trigger method is provided as workaround
             SelectedNotes.CollectionChanged += OnSelectedNotesChanged;
         }
 
@@ -293,19 +293,19 @@ namespace OpenUtauMobile.ViewModels
 
         private void OnSelectedPartsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
-            IsShowRenderPitchButton = false; // 每次选中分片变化时重置渲染音高按钮显示状态
-            IsShowAudioTranscribeButton = false; // 每次选中分片变化时重置干声转换按钮显示状态
+            IsShowRenderPitchButton = false; // Reset Render Pitch button visibility on each selection change
+            IsShowAudioTranscribeButton = false; // Reset Audio Transcribe button visibility on each selection change
             if (SelectedParts.Count == 0)
             {
-                EditingPart = null; // 清空正在编辑的分片
-                EditingPartName = string.Empty; // 清空编辑分片名称
-                EditingNotes = null; // 清空正在编辑的音符组
-                CurrentPortrait = []; // 清空当前立绘
+                EditingPart = null; // Clear editing part
+                EditingPartName = string.Empty; // Clear editing part name
+                EditingNotes = null; // Clear editing note group
+                CurrentPortrait = []; // Clear current portrait
                 EditingPartColor = Colors.Transparent;
             }
             else
             {
-                // 设置正在编辑的分片为第一个选中的歌声分片
+                // Set editing part to the first selected voice part
                 foreach (var part in SelectedParts)
                 {
                     if (part is UVoicePart voicePart)
@@ -319,13 +319,13 @@ namespace OpenUtauMobile.ViewModels
                 }
                 if (EditingPart == null)
                 {
-                    EditingPartName = string.Empty; // 如果没有选中歌声分片，清空编辑分片名称
-                    EditingNotes = null; // 清空正在编辑的音符组
+                    EditingPartName = string.Empty; // No voice part selected — clear editing part name
+                    EditingNotes = null; // Clear editing note group
                     if (SelectedParts.Count > 0)
                     {
                         if (SelectedParts[0] is UWavePart)
                         {
-                            // 如果选中的第一个分片是音频分片，显示干声转换按钮
+                            // If the first selected part is a wave part, show the Audio Transcribe button
                             IsShowAudioTranscribeButton = true;
                         }
                     }
@@ -333,11 +333,11 @@ namespace OpenUtauMobile.ViewModels
                 }
                 if (SelectedParts.Count == 1)
                 {
-                    EditingPartName = EditingPart.DisplayName; // 更新编辑分片名称
+                    EditingPartName = EditingPart.DisplayName; // Update editing part name
                 }
                 else
                 {
-                    EditingPartName = string.Format(AppResources.NPartsSelected, SelectedParts.Count); // 多个分片被选中时显示数量
+                    EditingPartName = string.Format(AppResources.NPartsSelected, SelectedParts.Count); // Multiple parts selected — show count
                 }
             }
         }
@@ -361,22 +361,22 @@ namespace OpenUtauMobile.ViewModels
 
         public void ValidateSelectedParts()
         {
-            // 检查一遍选中的分片是否已经被删除
+            // Check whether any selected parts have been removed from the project
             SelectedParts.RemoveMany([.. SelectedParts
                     .Where(part =>
                     {
                         if (DocManager.Inst.Project.parts.Contains(part))
                         {
-                            return false; // 如果分片还在项目中，则认为它是有效的
+                            return false; // Part still exists in the project — keep it
                         }
-                        return true; // 如果分片不在项目中，则认为它是无效的
+                        return true; // Part no longer exists in the project — remove it
                     })]);
             if (SelectedParts.Count == 0)
             {
-                EditingPart = null; // 清空正在编辑的分片
-                EditingPartName = string.Empty; // 清空编辑分片名称
-                EditingNotes = null; // 清空正在编辑的音符组
-                CurrentPortrait = []; // 清空当前立绘
+                EditingPart = null; // Clear editing part
+                EditingPartName = string.Empty; // Clear editing part name
+                EditingNotes = null; // Clear editing note group
+                CurrentPortrait = []; // Clear current portrait
                 EditingPartColor = Colors.Transparent;
             }
         }
@@ -385,24 +385,24 @@ namespace OpenUtauMobile.ViewModels
         {
             if (SelectedParts.Count == 0 || EditingPart == null)
             {
-                IsShowRenderPitchButton = false; // 不显示渲染音高按钮
+                IsShowRenderPitchButton = false; // Hide Render Pitch button
                 return;
             }
-            IsShowRenderPitchButton = DocManager.Inst.Project.tracks[EditingPart.trackNo].RendererSettings.Renderer?.SupportsRenderPitch ?? false; // 根据分片所属轨道的渲染器支持情况决定是否显示渲染音高按钮
+            IsShowRenderPitchButton = DocManager.Inst.Project.tracks[EditingPart.trackNo].RendererSettings.Renderer?.SupportsRenderPitch ?? false; // Show/hide Render Pitch button based on whether the track's renderer supports it
 
         }
 
         public void UpdateTrackMainEditBoundaries()
         {
-            BoundTrack = new Rect(BoundTrack.X, BoundTrack.Y, BoundTrack.Width, DivPosY); // 高度为 DivPosY
-            BoundDiv = new Rect(BoundDiv.X, DivPosY, BoundDiv.Width, BoundDiv.Height); // 上边界为 DivPosY
-            BoundPianoRoll = new Rect(BoundPianoRoll.X, DivPosY + 50d, BoundPianoRoll.Width, MainLayoutHeight - DivPosY - 50d); // 上边界为 DivPosY + 拖拽间隔高度（50），高度为 TotalHeight - DivPosY - 50d
-            // todo : 限制expheight，防止超过MainEditHeight
+            BoundTrack = new Rect(BoundTrack.X, BoundTrack.Y, BoundTrack.Width, DivPosY); // Height equals DivPosY
+            BoundDiv = new Rect(BoundDiv.X, DivPosY, BoundDiv.Width, BoundDiv.Height); // Top edge is DivPosY
+            BoundPianoRoll = new Rect(BoundPianoRoll.X, DivPosY + 50d, BoundPianoRoll.Width, MainLayoutHeight - DivPosY - 50d); // Top = DivPosY + divider height (50); Height = TotalHeight - DivPosY - 50
+            // TODO: clamp ExpHeight to prevent exceeding MainEditHeight
         }
         public void UpdatePianoRollExpBoundaries()
         {
-            BoundExpDiv = new Rect(BoundExpDiv.X, DivExpPosY, BoundExpDiv.Width, BoundExpDiv.Height); // 上边界为 DivExpPosY
-            BoundExp = new Rect(BoundExp.X, DivExpPosY + 50d, BoundExp.Width, MainEditHeight - DivExpPosY - 50d); // 上边界为 DivExpPosY + 拖拽间隔高度（50），高度为 TotalHeight - DivExpPosY - 50d
+            BoundExpDiv = new Rect(BoundExpDiv.X, DivExpPosY, BoundExpDiv.Width, BoundExpDiv.Height); // Top edge is DivExpPosY
+            BoundExp = new Rect(BoundExp.X, DivExpPosY + 50d, BoundExp.Width, MainEditHeight - DivExpPosY - 50d); // Top = DivExpPosY + divider height (50); Height = TotalHeight - DivExpPosY - 50
         }
 
         public void HandleSelectedNotesChanged()
@@ -455,14 +455,14 @@ namespace OpenUtauMobile.ViewModels
             {
                 try
                 {
-                    // 新建
+                    // New project
                     if (string.IsNullOrEmpty(path))
                     {
                         DocManager.Inst.ExecuteCmd(new LoadProjectNotification(OpenUtau.Core.Format.Ustx.Create()));
                     }
                     else
                     {
-                        // 打开
+                        // Open existing
                         string[] files = { path };
                         OpenUtau.Core.Format.Formats.LoadProject(files);
                     }
@@ -488,64 +488,64 @@ namespace OpenUtauMobile.ViewModels
         }
 
         /// <summary>
-        /// 开始移动分片
+        /// Start moving parts.
         /// </summary>
         /// <param name="parts"></param>
-        /// <param name="startPosition">逻辑坐标</param>
+        /// <param name="startPosition">Logical coordinates</param>
         public void StartMoveParts(IEnumerable<UPart> parts, SKPoint startPosition)
         {
             if (parts == null || !parts.Any())
             {
                 return;
             }
-            _startMovePartsPosition = startPosition; // 记录开始拖动时的起始位置
+            _startMovePartsPosition = startPosition; // Record starting position at drag begin
             _startMovePartsTrackNo = (int)Math.Floor((startPosition.Y / Density) / HeightPerTrack);
-            IsMovingParts = true; // 标记正在移动分片
-            _oldMovedPartsPos.Clear(); // 清空之前的分片位置
-            _oldMovedPartsTrackNo.Clear(); // 清空之前的分片轨道号
+            IsMovingParts = true; // Mark as moving parts
+            _oldMovedPartsPos.Clear(); // Clear previous part positions
+            _oldMovedPartsTrackNo.Clear(); // Clear previous part track numbers
             foreach (var part in parts)
             {
                 if (part == null)
                 {
                     continue;
                 }
-                // 记录移动开始时的分片位置和轨道号
+                // Record part position and track number at move start
                 _oldMovedPartsPos.Add(part.position);
                 _oldMovedPartsTrackNo.Add(part.trackNo);
             }
-            // 启动一个撤销组
+            // Start an undo group
             _movePartsUndoScope = new UndoScope();
         }
 
         /// <summary>
-        /// 更新正在移动的分片位置
+        /// Update position of parts being moved.
         /// </summary>
-        /// <param name="currentPosition">逻辑坐标</param>
+        /// <param name="currentPosition">Logical coordinates</param>
         public void UpdateMoveParts(SKPoint currentPosition)
         {
             if (!IsMovingParts)
             {
                 return;
             }
-            // 计算偏移量
+            // Calculate offset
 
             var offsetX = currentPosition.X - _startMovePartsPosition.X;
             var offsetY = currentPosition.Y - _startMovePartsPosition.Y;
-            // 如果偏移量小于阈值，则不进行移动
+            // If offset is below threshold, do not move
             if (Math.Abs(offsetX) < 5)
             {
                 return;
             }
             int deltaTrackNo = (int)Math.Floor((currentPosition.Y / Density) / HeightPerTrack) - _startMovePartsTrackNo;
-            // 计算偏移量
+            // Calculate new positions
             int[] newPositions = new int[SelectedParts.Count];
             int[] newTrackNos = new int[SelectedParts.Count];
             for (int i = 0; i < SelectedParts.Count; i++)
             {
                 var part = SelectedParts[i];
-                // 计算新的位置
+                // Calculate new position
                 int newPosition = (int)(_oldMovedPartsPos[i] + offsetX);
-                // 如果启用对齐网格，则将新的位置对齐到最近的网格线
+                // If snap-to-grid is enabled, align new position to the nearest grid line
                 if (IsTrackSnapToGrid)
                 {
                     newPosition = TrackTickToLinedTick(newPosition);
@@ -553,16 +553,16 @@ namespace OpenUtauMobile.ViewModels
                     { return; }
                 }
                 int newTrackNo = _oldMovedPartsTrackNo[i] + deltaTrackNo;
-                // 检查新的位置是否在有效范围内
+                // Check whether the new position is within valid bounds
                 if (newPosition < 0 || newTrackNo < 0 || newTrackNo >= DocManager.Inst.Project.tracks.Count)
                 {
-                    Console.WriteLine($"分片位置超出范围，无法移动。");
-                    return; // 如果新的位置超出范围，则不进行移动
+                    Console.WriteLine($"Part position out of range — cannot move.");
+                    return; // If the new position is out of range, do not move
                 }
                 newPositions[i] = newPosition;
                 newTrackNos[i] = newTrackNo;
             }
-            // 更新选中分片的位置
+            // Update selected part positions
             for (int i = 0; i < SelectedParts.Count; i++)
             {
                 var part = SelectedParts[i];
@@ -570,7 +570,7 @@ namespace OpenUtauMobile.ViewModels
                 {
                     continue;
                 }
-                // 执行移动命令
+                // Execute move command
                 try
                 {
                     DocManager.Inst.ExecuteCmd(new MovePartCommand(DocManager.Inst.Project, part, newPositions[i], newTrackNos[i]));
@@ -583,30 +583,30 @@ namespace OpenUtauMobile.ViewModels
         }
 
         /// <summary>
-        /// 结束移动分片
+        /// End moving parts.
         /// </summary>
         public void EndMoveParts()
         {
-            IsMovingParts = false; // 重置移动状态
-            // 结束撤销组
+            IsMovingParts = false; // Reset moving state
+            // End undo group
             _movePartsUndoScope?.Dispose();
             _movePartsUndoScope = null;
         }
 
         /// <summary>
-        /// 开始创建分片
+        /// Start creating a part.
         /// </summary>
-        /// <param name="currentPoint">逻辑坐标</param>
+        /// <param name="currentPoint">Logical coordinates</param>
         public void StartCreatePart(SKPoint currentPoint)
         {
-            _startCreatePartPosition = currentPoint; // 记录开始创建分片时的起始位置
-            IsCreatingPart = true; // 标记正在创建分片
+            _startCreatePartPosition = currentPoint; // Record starting position at part creation begin
+            IsCreatingPart = true; // Mark as creating part
             int trackNo = (int)Math.Floor((currentPoint.Y / Density) / HeightPerTrack);
-            // 确保轨道号在有效范围内
+            // Ensure track number is within valid range
             if (trackNo < 0 || trackNo >= DocManager.Inst.Project.tracks.Count)
             {
-                Console.WriteLine($"轨道号 {trackNo} 超出范围，无法创建分片。");
-                IsCreatingPart = false; // 创建失败，重置创建状态
+                Console.WriteLine($"Track number {trackNo} out of range — cannot create part.");
+                IsCreatingPart = false; // Creation failed — reset state
                 return;
             }
             int position = (int)currentPoint.X;
@@ -614,16 +614,16 @@ namespace OpenUtauMobile.ViewModels
             {
                 position = TrackTickToFloorLinedTick(position);
             }
-            // 获取一个初始分片
+            // Create an initial part
             UVoicePart part = new()
             {
                 position = position,
-                // 初始持续时间为一个网格对应的tick长度
+                // Initial duration equals one grid unit's tick length
                 Duration = TrackSnapUnitTick,
                 trackNo = trackNo,
                 name = AppResources.NewPart
             };
-            // 清除选中的分片
+            // Clear selected parts
             SelectedParts.Clear();
             SelectedParts.Add(part);
             _createPartUndoScope = new UndoScope();
@@ -649,7 +649,7 @@ namespace OpenUtauMobile.ViewModels
         }
 
         /// <summary>
-        /// 更新正在创建的分片长度
+        /// Update the length of the part currently being created.
         /// </summary>
         /// <param name="sKPoint"></param>
         public void UpdateCreatePart(SKPoint sKPoint)
@@ -673,7 +673,7 @@ namespace OpenUtauMobile.ViewModels
         }
 
         /// <summary>
-        /// 结束创建分片
+        /// End part creation.
         /// </summary>
         public void EndCreatePart()
         {
@@ -683,7 +683,7 @@ namespace OpenUtauMobile.ViewModels
         }
 
         /// <summary>
-        /// 删除选中的分片
+        /// Delete the selected parts.
         /// </summary>
         public void RemoveSelectedParts()
         {
@@ -713,18 +713,18 @@ namespace OpenUtauMobile.ViewModels
                 TrackName = AppResources.NewTrack,
                 TrackColor = ViewConstants.TrackMauiColors.ElementAt(ObjectProvider.Random.Next(ViewConstants.TrackMauiColors.Count)).Key,
             };
-            // 开启撤销组
+            // Open undo group
             using var undo = new UndoScope();
             DocManager.Inst.ExecuteCmd(new AddTrackCommand(DocManager.Inst.Project, track));
         }
 
         internal void StartResizePart(UPart part, SKPoint sKPoint)
         {
-            _startResizePartPosition = sKPoint; // 记录开始调整分片长度时的起始位置
-            IsResizingPart = true; // 标记正在调整分片长度
-            _resizingPart = part; // 记录正在调整长度的分片
-            _resizingPartOriginalDuration = part.Duration; // 记录调整开始时的分片原始长度
-            // 启动一个撤销组
+            _startResizePartPosition = sKPoint; // Record starting position when beginning to resize a part
+            IsResizingPart = true; // Mark that a part resize is in progress
+            _resizingPart = part; // Record the part being resized
+            _resizingPartOriginalDuration = part.Duration; // Record the original duration at resize start
+            // Start an undo group
             _resizePartUndoScope = new UndoScope();
         }
 
@@ -751,16 +751,16 @@ namespace OpenUtauMobile.ViewModels
 
         internal void EndResizePart()
         {
-            IsResizingPart = false; // 重置调整分片长度状态
-            _resizePartUndoScope?.Dispose(); // 结束撤销组
+            IsResizingPart = false; // Reset part-resize state
+            _resizePartUndoScope?.Dispose(); // End undo group
             _resizePartUndoScope = null;
         }
 
         /// <summary>
-        /// 走带获取最接近的对齐线tick位置
+        /// Track: get the nearest grid-line tick position.
         /// </summary>
         /// <param name="tick"></param>
-        /// <returns>已对齐的tick</returns>
+        /// <returns>Snapped tick</returns>
         public int TrackTickToLinedTick(int tick)
         {
             if (tick < 0 || TrackSnapDiv <= 0)
@@ -768,17 +768,17 @@ namespace OpenUtauMobile.ViewModels
                 return 0;
             }
 
-            // 计算最接近的网格线位置
+            // Calculate the nearest grid-line position
             int linedTick = (int)Math.Round((double)tick / TrackSnapUnitTick) * TrackSnapUnitTick;
 
             return linedTick;
         }
 
         /// <summary>
-        /// 钢琴卷帘获取最接近的对齐线tick位置
+        /// Piano roll: get the nearest grid-line tick position.
         /// </summary>
         /// <param name="tick"></param>
-        /// <returns>已对齐的tick</returns>
+        /// <returns>Snapped tick</returns>
         public int PianoRollTickToLinedTick(int tick)
         {
             if (tick < 0 || PianoRollSnapDiv <= 0)
@@ -786,17 +786,17 @@ namespace OpenUtauMobile.ViewModels
                 return 0;
             }
 
-            // 计算最接近的网格线位置
+            // Calculate the nearest grid-line position
             int linedTick = (int)Math.Round((double)tick / PianoRollSnapUnitTick) * PianoRollSnapUnitTick;
 
             return linedTick;
         }
 
         /// <summary>
-        /// 钢琴卷帘获取前一个的对齐线tick位置
+        /// Piano roll: get the preceding grid-line tick position.
         /// </summary>
         /// <param name="tick"></param>
-        /// <returns>已对齐的tick</returns>
+        /// <returns>Snapped tick</returns>
         public int PianoRollTickToFloorLinedTick(int tick)
         {
             if (tick < 0 || PianoRollSnapDiv <= 0)
@@ -804,17 +804,17 @@ namespace OpenUtauMobile.ViewModels
                 return 0;
             }
 
-            // 计算最接近前一个的网格线位置
-            int linedTick = ((int)Math.Floor((double)tick / PianoRollSnapUnitTick)) * PianoRollSnapUnitTick; // 这个括号好坑
+            // Calculate the nearest preceding grid-line position
+            int linedTick = ((int)Math.Floor((double)tick / PianoRollSnapUnitTick)) * PianoRollSnapUnitTick; // parentheses are load-bearing here
 
             return linedTick;
         }
 
         /// <summary>
-        /// 走带获取前一个的对齐线tick位置
+        /// Track: get the preceding grid-line tick position.
         /// </summary>
         /// <param name="tick"></param>
-        /// <returns>已对齐的tick</returns>
+        /// <returns>Snapped tick</returns>
         public int TrackTickToFloorLinedTick(int tick)
         {
             if (tick < 0 || TrackSnapDiv <= 0)
@@ -822,17 +822,17 @@ namespace OpenUtauMobile.ViewModels
                 return 0;
             }
 
-            // 计算最接近前一个的网格线位置
+            // Calculate the nearest preceding grid-line position
             int linedTick = ((int)Math.Floor((double)tick / TrackSnapUnitTick)) * TrackSnapUnitTick;
 
             return linedTick;
         }
 
         /// <summary>
-        /// 上移轨道
+        /// Move a track up.
         /// </summary>
-        /// <param name="track">要上移的轨道</param>
-        /// <returns>是否移动成功</returns>
+        /// <param name="track">The track to move up</param>
+        /// <returns>Whether the move succeeded</returns>
         public bool MoveTrackUp(UTrack track)
         {
             if (track == DocManager.Inst.Project.tracks.First())
@@ -846,10 +846,10 @@ namespace OpenUtauMobile.ViewModels
         }
 
         /// <summary>
-        /// 下移轨道
+        /// Move a track down.
         /// </summary>
-        /// <param name="track">要下移的轨道</param>
-        /// <returns>是否移动成功</returns>
+        /// <param name="track">The track to move down</param>
+        /// <returns>Whether the move succeeded</returns>
         public bool MoveTrackDown(UTrack track)
         {
             if (track == DocManager.Inst.Project.tracks.Last())
@@ -870,9 +870,9 @@ namespace OpenUtauMobile.ViewModels
         }
 
         /// <summary>
-        /// 创建一个默认音符
+        /// Create a default note.
         /// </summary>
-        /// <param name="currentPoint">逻辑坐标</param>
+        /// <param name="currentPoint">Logical coordinate</param>
         public void CreateDefaultNote(SKPoint currentPoint)
         {
             int tone = (int)Math.Floor(ViewConstants.TotalPianoKeys - currentPoint.Y / Density / HeightPerPianoKey);
@@ -909,20 +909,20 @@ namespace OpenUtauMobile.ViewModels
             {
                 using var undo = new UndoScope();
                 DocManager.Inst.ExecuteCmd(new TrackChangeSingerCommand(DocManager.Inst.Project, track, newSinger));
-                // 先尝试从偏好设置中设置用户常用的音素器
+                // First try to set the phonemizer preferred by the user for this singer
                 if (!string.IsNullOrEmpty(newSinger?.Id) &&
                     OpenUtau.Core.Util.Preferences.Default.SingerPhonemizers.TryGetValue(newSinger.Id, out var phonemizerName) &&
                     TryChangePhonemizer(phonemizerName, track))
                 {
                 }
                 else if (!string.IsNullOrEmpty(newSinger?.DefaultPhonemizer))
-                { // 否则尝试设置音源默认的音素器
+                { // Otherwise try the singer's default phonemizer
                     TryChangePhonemizer(newSinger.DefaultPhonemizer, track);
                 }
-                // 如果歌手切换失败
+                // If the singer switch failed
                 if (newSinger == null || !newSinger.Found)
                 {
-                    // 重置为默认渲染器
+                    // Reset to the default renderer
                     var settings = new URenderSettings();
                     DocManager.Inst.ExecuteCmd(new TrackChangeRenderSettingCommand(DocManager.Inst.Project, track, settings));
                 }
@@ -930,13 +930,13 @@ namespace OpenUtauMobile.ViewModels
                 {
                     var settings = new URenderSettings
                     {
-                        // 获取歌手类型对应的默认渲染器
+                        // Get the default renderer for the singer type
                         renderer = OpenUtau.Core.Render.Renderers.GetDefaultRenderer(newSinger.SingerType),
                     };
                     DocManager.Inst.ExecuteCmd(new TrackChangeRenderSettingCommand(DocManager.Inst.Project, track, settings));
                 }
                 DocManager.Inst.ExecuteCmd(new VoiceColorRemappingNotification(track.TrackNo, true));
-                // 更新最近使用的歌手列表
+                // Update recent-singers list
                 if (!string.IsNullOrEmpty(newSinger?.Id) && newSinger.Found)
                 {
                     OpenUtau.Core.Util.Preferences.Default.RecentSingers.Remove(newSinger.Id);
@@ -967,7 +967,7 @@ namespace OpenUtauMobile.ViewModels
             }
             catch (Exception e)
             {
-                Serilog.Log.Error(e, $"未能加载音素器：{phonemizerName}");
+                Serilog.Log.Error(e, $"Failed to load phonemizer: {phonemizerName}");
             }
             return false;
         }
@@ -988,7 +988,7 @@ namespace OpenUtauMobile.ViewModels
         }
 
         /// <summary>
-        /// 刷新轨道（刷新全部轨道重载）
+        /// Refreshes all tracks.
         /// </summary>
         public void RefreshTrack()
         {
@@ -1002,9 +1002,9 @@ namespace OpenUtauMobile.ViewModels
         }
 
         /// <summary>
-        /// 刷新轨道（刷新单个轨道重载）
+        /// Refreshes a single track.
         /// </summary>
-        /// <param name="track">要更新的轨道</param>
+        /// <param name="track">The track to refresh.</param>
         public void RefreshTrack(UTrack track)
         {
             try
@@ -1049,10 +1049,10 @@ namespace OpenUtauMobile.ViewModels
             {
                 return;
             }
-            _resizingNote = resizingNote; // 记录正在调整长度的音符
-            IsResizingNote = true; // 标记正在调整音符长度
+            _resizingNote = resizingNote; // Record note being resized
+            IsResizingNote = true; // Mark resize as in progress
             _initialBound2TouchOffset = (int)sKPoint.X - (EditingPart.position + resizingNote.position + resizingNote.duration);
-            // 启动一个撤销组
+            // Start undo group
             _resizeNotesUndoScope = new UndoScope();
         }
 
@@ -1062,13 +1062,13 @@ namespace OpenUtauMobile.ViewModels
             {
                 return;
             }
-            _startMoveNotesPosition = sKPoint; // 记录开始拖动音符时的起始位置
-            IsMovingNotes = true; // 标记正在移动音符
-            _originalPosition = SelectedNotes[0].position; // 记录调整开始时的第一个音符原始位置
+            _startMoveNotesPosition = sKPoint; // Starting position when note drag begins
+            IsMovingNotes = true; // Mark move as in progress
+            _originalPosition = SelectedNotes[0].position; // Original position of first note at move start
             _startMoveNoteToneReversed = (int)Math.Floor(sKPoint.Y / Density / HeightPerPianoKey);
-            _offsetPosition = 0; // 重置位置偏移量
-            _offsetTone = 0; // 重置音高偏移量
-            // 启动一个撤销组
+            _offsetPosition = 0; // Reset position offset
+            _offsetTone = 0; // Reset tone offset
+            // Start undo group
             _moveNotesUndoScope = new UndoScope();
         }
 
@@ -1078,10 +1078,10 @@ namespace OpenUtauMobile.ViewModels
             {
                 return;
             }
-            // 计算拖动距离
+            // Compute drag distance
             float newOffsetPosition = point.X - _startMoveNotesPosition.X;
             int hoverToneReversed = (int)Math.Floor((float)(point.Y / Density / HeightPerPianoKey));
-            if (IsPianoRollSnapToGrid) // 如果启用对齐网格，则将第一个音符的开头位置对齐到最近的网格线
+            if (IsPianoRollSnapToGrid) // Snap-to-grid: align first note's start to nearest grid line
             {
                 int newPosition = PianoRollTickToLinedTick((int)(_originalPosition + newOffsetPosition));
                 newOffsetPosition = newPosition - _originalPosition;
@@ -1090,9 +1090,9 @@ namespace OpenUtauMobile.ViewModels
             int newOffsetTone = _startMoveNoteToneReversed - hoverToneReversed;
             int deltaTone = newOffsetTone - _offsetTone;
             if (deltaPosition == 0 && deltaTone == 0)
-            { return; } // 没有变化就不更新
+            { return; } // No change — skip update
             Console.WriteLine($"deltaPosition: {newOffsetPosition}, deltaTone: {newOffsetTone}");
-            // 更新音符位置
+            // Update note position
             DocManager.Inst.ExecuteCmd(new MoveNoteCommand(EditingPart, [.. SelectedNotes], deltaPosition, deltaTone));
             _offsetPosition = (int)newOffsetPosition;
             _offsetTone = newOffsetTone;
@@ -1112,23 +1112,23 @@ namespace OpenUtauMobile.ViewModels
                 deltaDuration = snapedX - rightBound;
             }
             if (deltaDuration == 0)
-            { return; } // 没有变化就不更新
+            { return; } // No change — skip update
             Console.WriteLine($"deltaDuration: {deltaDuration}");
-            // 更新音符长度
+            // Update note duration
             DocManager.Inst.ExecuteCmd(new ResizeNoteCommand(EditingPart, [.. SelectedNotes], deltaDuration));
         }
 
         public void EndMoveNotes()
         {
-            IsMovingNotes = false; // 重置移动音符状态
-            _moveNotesUndoScope?.Dispose(); // 结束撤销组
+            IsMovingNotes = false; // Reset move state
+            _moveNotesUndoScope?.Dispose(); // End undo group
             _moveNotesUndoScope = null;
         }
 
         public void EndResizeNotes()
         {
-            IsResizingNote = false; // 重置调整音符状态
-            _resizeNotesUndoScope?.Dispose(); // 结束撤销组
+            IsResizingNote = false; // Reset resize state
+            _resizeNotesUndoScope?.Dispose(); // End undo group
             _resizeNotesUndoScope = null;
         }
 
@@ -1154,10 +1154,10 @@ namespace OpenUtauMobile.ViewModels
         }
 
         /// <summary>
-        /// 尝试采样指定位置的已有音高（单位：cent）
+        /// Samples the existing pitch (in cents) at the specified logical position.
         /// </summary>
-        /// <param name="point">逻辑坐标</param>
-        /// <returns>若音符存在则返回其音高，否则返回null</returns>
+        /// <param name="point">Logical coordinates.</param>
+        /// <returns>Pitch in cents if a note exists at that position; otherwise null.</returns>
         public double? SamplePitch(SKPoint point)
         {
             if (EditingPart == null)
@@ -1175,9 +1175,9 @@ namespace OpenUtauMobile.ViewModels
                 return null;
             }
             double pitch = note.tone * 100;
-            // 加上该音符内部的音高变化（从音符的pitch控制点采样）
+            // Add intra-note pitch variation (sampled from the note's pitch control points)
             pitch += note.pitch.Sample(DocManager.Inst.Project, EditingPart, note, tick) ?? 0;
-            // 特殊情况：如果下一个音符紧接着当前音符，且当前位置属于两个音符的过渡区域
+            // Edge case: if the next note starts immediately after this one, blend the transition
             if (note.Next != null && note.Next.position == note.End)
             {
                 double? delta = note.Next.pitch.Sample(DocManager.Inst.Project, EditingPart, note.Next, tick);
@@ -1190,11 +1190,11 @@ namespace OpenUtauMobile.ViewModels
         }
 
         /// <summary>
-        /// 将tick和double音高转化为视图逻辑坐标点
+        /// Converts a tick position and pitch value to a logical view coordinate.
         /// </summary>
-        /// <param name="tick">相对于整个项目的tick</param>
-        /// <param name="pitch">音高</param>
-        /// <returns>逻辑坐标</returns>
+        /// <param name="tick">Tick position relative to the entire project.</param>
+        /// <param name="pitch">Pitch value in cents.</param>
+        /// <returns>Logical coordinates.</returns>
         public SKPoint PitchAndTickToPoint(int tick, double pitch)
         {
             return new SKPoint(
@@ -1204,7 +1204,7 @@ namespace OpenUtauMobile.ViewModels
         }
 
         /// <summary>
-        /// 将逻辑坐标点转化为tick和double音高
+        /// Converts a logical coordinate point to a tick position and pitch value.
         /// </summary>
         /// <param name="point"></param>
         /// <param name="tick"></param>
@@ -1223,14 +1223,14 @@ namespace OpenUtauMobile.ViewModels
             }
             _lastPitchValue = null;
             _lastPitchTick = null;
-            // 启动一个撤销组
+            // Begin undo group
             _drawPitchUndoScope = new UndoScope();
         }
 
         /// <summary>
-        /// 绘制音高曲线
+        /// Draws the pitch curve at the given logical position.
         /// </summary>
-        /// <param name="point">逻辑坐标</param>
+        /// <param name="point">Logical coordinates.</param>
         public void UpdateDrawPitch(SKPoint point)
         {
             if (EditingPart == null)
@@ -1238,48 +1238,48 @@ namespace OpenUtauMobile.ViewModels
                 return;
             }
 
-            // 获取当前点的tick位置和音高
+            // Get the tick position and pitch at the current point
             int tick = (int)point.X - EditingPart.position;
             PointToPitchAndTick(point, out _, out double expectedPitch);
 
-            // 采样当前位置的基准音高
+            // Sample the baseline pitch at the current position
             SKPoint samplePoint = PitchAndTickToPoint(
                 (int)Math.Round(tick / 5.0) * 5,
                 expectedPitch);
             double? basePitch = SamplePitch(samplePoint);
             if (basePitch == null)
             {
-                Console.WriteLine($"无法采样基准音高，跳过绘制。");
+                Console.WriteLine($"Cannot sample baseline pitch; skipping draw.");
                 return;
             }
-            //Debug.WriteLine($"采样基准音高：{basePitch} cent");
+            //Debug.WriteLine($"Sampled baseline pitch: {basePitch} cent");
 
-            // 计算当前音高与基准音高的差值(单位：cent)
+            // Calculate the delta between the expected pitch and the baseline (in cents)
             int pitchDelta = (int)Math.Round(expectedPitch - basePitch.Value);
-            //Debug.WriteLine($"绘制音高点：tick={tick}, 期望音高={expectedPitch}, 差值={pitchDelta} cent");
+            //Debug.WriteLine($"Draw pitch point: tick={tick}, expectedPitch={expectedPitch}, delta={pitchDelta} cent");
 
-            // 创建从上一个点到当前点的曲线
+            // Create the curve from the previous point to the current point
             DocManager.Inst.ExecuteCmd(new SetCurveCommand(
                 DocManager.Inst.Project,
                 EditingPart,
                 OpenUtau.Core.Format.Ustx.PITD,
-                tick,                 // 当前点位置
-                pitchDelta,           // 当前点音高差值
-                _lastPitchTick ?? tick,    // 上一个点位置（首次使用当前点）
-                (int)(_lastPitchValue != null ? _lastPitchValue.Value : pitchDelta)  // 上一个点音高差值（首次使用当前差值）
+                tick,                 // current point position
+                pitchDelta,           // current point pitch delta
+                _lastPitchTick ?? tick,    // previous point position (use current on first call)
+                (int)(_lastPitchValue != null ? _lastPitchValue.Value : pitchDelta)  // previous point pitch delta (use current on first call)
             ));
 
-            // 更新上一个点的信息，存储实际差值而非原始音高
+            // Update previous-point state; store actual delta, not raw pitch
             _lastPitchTick = tick;
             _lastPitchValue = pitchDelta;
         }
 
         /// <summary>
-        /// 结束绘制音高曲线
+        /// Ends pitch curve drawing and commits the undo group.
         /// </summary>
         public void EndDrawPitch()
         {
-            _drawPitchUndoScope?.Dispose(); // 结束撤销组
+            _drawPitchUndoScope?.Dispose(); // End undo group
             _drawPitchUndoScope = null;
             _lastPitchValue = null;
             _lastPitchTick = null;
@@ -1319,7 +1319,7 @@ namespace OpenUtauMobile.ViewModels
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "导入音频失败");
+                Log.Error(ex, "Failed to import audio");
             }
         }
 
@@ -1332,7 +1332,7 @@ namespace OpenUtauMobile.ViewModels
 
         internal void LoadPortrait()
         {
-            //Debug.WriteLine("尝试加载歌手立绘");
+            //Debug.WriteLine("Attempting to load singer portrait");
             if (EditingPart == null)
             {
                 CurrentPortrait = [];
@@ -1340,11 +1340,11 @@ namespace OpenUtauMobile.ViewModels
             }
             if (OpenUtau.Core.Util.Preferences.Default.ShowPortrait)
             {
-                //Debug.WriteLine($"尝试加载歌手立绘");
+                //Debug.WriteLine($"Attempting to load singer portrait");
                 if (DocManager.Inst.Project.tracks[EditingPart.trackNo].Singer is USinger singer && singer != null)
                 {
                     CurrentPortrait = singer.LoadPortrait();
-                    //Debug.WriteLine($"加载了歌手立绘 {singer.Name}, images size: {CurrentPortrait.Length}");
+                    //Debug.WriteLine($"Loaded singer portrait {singer.Name}, images size: {CurrentPortrait.Length}");
                     PortraitOpacity = Preferences.Default.CustomPortraitOptions ? Preferences.Default.PortraitOpacity : singer.PortraitOpacity;
                 }
             }
@@ -1380,29 +1380,29 @@ namespace OpenUtauMobile.ViewModels
             UVoicePart part, List<UNote> selectedNotes,
             Action<string, int, int> setProgressCallback, CancellationToken cancellationToken, string workId)
         {
-            Console.WriteLine("开始渲染音高");
+            Console.WriteLine("Starting pitch render");
             UProject project = DocManager.Inst.Project;
-            var renderer = project.tracks[part.trackNo].RendererSettings.Renderer; // 获取当前轨道的渲染器
+            var renderer = project.tracks[part.trackNo].RendererSettings.Renderer; // Get renderer for this track
             if (renderer == null || !renderer.SupportsRenderPitch)
             {
-                DocManager.Inst.ExecuteCmd(new ErrorMessageNotification("Not supported")); // 弹出错误信息
+                DocManager.Inst.ExecuteCmd(new ErrorMessageNotification("Not supported")); // Show error notification
                 return;
             }
-            var notes = selectedNotes.Count > 0 ? selectedNotes : part.notes.ToList(); // 获取选中的音符列表
-            var positions = notes.Select(n => n.position + part.position).ToHashSet(); // 获取选中音符的绝对位置集合
-            var phrases = part.renderPhrases.Where(phrase => phrase.notes.Any(n => positions.Contains(phrase.position + n.position))).ToArray(); // 获取包含选中音符的渲染phrase列表
+            var notes = selectedNotes.Count > 0 ? selectedNotes : part.notes.ToList(); // Get list of selected notes
+            var positions = notes.Select(n => n.position + part.position).ToHashSet(); // Get absolute positions of selected notes
+            var phrases = part.renderPhrases.Where(phrase => phrase.notes.Any(n => positions.Contains(phrase.position + n.position))).ToArray(); // Get render phrases containing selected notes
             float minPitD = -1200;
             if (project.expressions.TryGetValue(OpenUtau.Core.Format.Ustx.PITD, out var descriptor))
             {
-                minPitD = descriptor.min; // 获取PITD表情的最小值
+                minPitD = descriptor.min; // Get PITD expression minimum value
             }
 
             int finished = 0;
             setProgressCallback(workId, 0, phrases.Length);
             List<SetCurveCommand> commands = new List<SetCurveCommand>();
             for (int ph_i = phrases.Count() - 1; ph_i >= 0; ph_i--)
-            { // 遍历每个phrase
-                Console.WriteLine($"渲染音高 phrase {ph_i + 1}/{phrases.Length}");
+            { // Iterate each render phrase
+                Console.WriteLine($"Rendering pitch phrase {ph_i + 1}/{phrases.Length}");
                 var phrase = phrases[ph_i];
                 var result = renderer.LoadRenderedPitch(phrase);
                 if (result == null)
@@ -1411,12 +1411,12 @@ namespace OpenUtauMobile.ViewModels
                 }
                 int? lastX = null;
                 int? lastY = null;
-                // TODO: Optimize interpolation and command. // todo: 优化插值和命令
+                // TODO: Optimize interpolation and command.
                 if (cancellationToken.IsCancellationRequested)
                 {
                     break;
                 }
-                // Take the first negative tick before start and the first tick after end for each segment; // 取每个片段开始前的第一个负刻度和结束后的第一个刻度
+                // Take the first negative tick before start and the first tick after end for each segment;
                 // Reverse traversal, so that when the score slices are too close, priority is given to covering the consonant pitch of the next segment, reducing the impact on vowels.
                 for (int i = 0; i < result.tones.Length; i++)
                 {
@@ -1486,10 +1486,10 @@ namespace OpenUtauMobile.ViewModels
             }
         }
         /// <summary>
-        /// 开始绘制表情曲线
+        /// Begins drawing an expression curve at the given position.
         /// </summary>
-        /// <param name="point">实际坐标</param>
-        /// <param name="canvasHeight">实际画布高度（未乘以Density）</param>
+        /// <param name="point">Actual canvas coordinates.</param>
+        /// <param name="canvasHeight">Actual canvas height (before Density scaling).</param>
         public void StartDrawExpression(SKPoint point, float canvasHeight)
         {
             if (EditingPart == null)
@@ -1498,15 +1498,15 @@ namespace OpenUtauMobile.ViewModels
             }
             UProject project = DocManager.Inst.Project;
             UTrack track = DocManager.Inst.Project.tracks[EditingPart.trackNo];
-            if (!track.TryGetExpDescriptor(project, PrimaryExpressionAbbr, out _editingExpressionDescriptor)) // 尝试从名称（如DYN）获取描述器
+            if (!track.TryGetExpDescriptor(project, PrimaryExpressionAbbr, out _editingExpressionDescriptor)) // Try to get descriptor by abbreviation (e.g. DYN)
             {
-                // 失败则清空描述器并返回
+                // Failed — clear descriptor and return
                 _editingExpressionDescriptor = null;
                 return;
             }
             if (_editingExpressionDescriptor.max <= _editingExpressionDescriptor.min)
             {
-                // 无效的描述器
+                // Invalid descriptor
                 return;
             }
             _lastExpTick = (int)PianoRollTransformer.ActualToLogicalX(point.X) - EditingPart.position;
@@ -1514,10 +1514,10 @@ namespace OpenUtauMobile.ViewModels
             _drawExpressionUndoScope = new UndoScope();
         }
         /// <summary>
-        /// 更新绘制表情曲线
+        /// Continues drawing an expression curve as the pointer moves.
         /// </summary>
-        /// <param name="point">实际坐标</param>
-        /// <param name="canvasHeight">实际画布高度（未乘以Density）</param>
+        /// <param name="point">Actual canvas coordinates.</param>
+        /// <param name="canvasHeight">Actual canvas height (before Density scaling).</param>
         public void UpdateDrawExpression(SKPoint point, float canvasHeight)
         {
             if (EditingPart == null || _editingExpressionDescriptor == null)
@@ -1535,7 +1535,7 @@ namespace OpenUtauMobile.ViewModels
             }
             else
             {
-                // 四舍五入取整
+                // Round to nearest integer
                 currentValue = (int)Math.Round(currentValueExact);
                 currentExpressionValue = currentValue;
                 UpdateDrawPhonemeExp(currentTick, currentValue);
@@ -1544,7 +1544,7 @@ namespace OpenUtauMobile.ViewModels
             _lastExpValue = currentValue;
         }
         /// <summary>
-        /// 曲线型表情更新
+        /// Updates a curve-type expression at the current tick.
         /// </summary>
         /// <param name="currentTick"></param>
         /// <param name="currentValue"></param>
@@ -1565,7 +1565,7 @@ namespace OpenUtauMobile.ViewModels
             ));
         }
         /// <summary>
-        /// 音素表情曲线
+        /// Updates a phoneme expression value at the current tick.
         /// </summary>
         /// <param name="currentTick"></param>
         /// <param name="currentValue"></param>
@@ -1585,7 +1585,7 @@ namespace OpenUtauMobile.ViewModels
                     continue;
                 }
                 float x = hit.note.position + hit.phoneme.position;
-                // !!!只有在范围内的点才进行插值计算！！！
+                // Only interpolate for points within the dragged range
                 int y = currentValue;
                 if (x >= Math.Min(_lastExpTick, currentTick) && x <= Math.Max(_lastExpTick, currentTick))
                 {
@@ -1608,7 +1608,7 @@ namespace OpenUtauMobile.ViewModels
             }
         }
         /// <summary>
-        /// 线性插值
+        /// Linear interpolation between two (x, y) points at position x.
         /// </summary>
         /// <param name="x1"></param>
         /// <param name="y1"></param>
@@ -1626,7 +1626,7 @@ namespace OpenUtauMobile.ViewModels
             return y1 + (y2 - y1) * (x - x1) / (x2 - x1);
         }
         /// <summary>
-        /// 结束绘制表情曲线
+        /// Ends expression curve drawing and commits the undo group.
         /// </summary>
         public void EndDrawExpression()
         {
@@ -1635,11 +1635,11 @@ namespace OpenUtauMobile.ViewModels
         }
 
         /// <summary>
-        /// 根据指定范围命中音符
+        /// Hit-tests phonemes within the given tick range.
         /// </summary>
-        /// <param name="tick1">起始</param>
-        /// <param name="tick2">结束</param>
-        /// <returns>命中信息列表</returns>
+        /// <param name="tick1">Start tick.</param>
+        /// <param name="tick2">End tick.</param>
+        /// <returns>List of hit results.</returns>
         public List<NoteHitInfo> HitTestExpRange(int tick1, int tick2)
         {
             if (tick1 > tick2)
@@ -1674,7 +1674,7 @@ namespace OpenUtauMobile.ViewModels
         }
 
         /// <summary>
-        /// 命中音符信息
+        /// Holds hit-test result information for a note/phoneme.
         /// </summary>
         public class NoteHitInfo
         {
@@ -1700,9 +1700,9 @@ namespace OpenUtauMobile.ViewModels
             }
         }
         /// <summary>
-        /// 开始重置表情曲线
+        /// Begins resetting an expression curve at the given position.
         /// </summary>
-        /// <param name="point">实际坐标</param>
+        /// <param name="point">Actual canvas coordinates.</param>
         public void StartResetExpression(SKPoint point)
         {
             if (EditingPart == null)
@@ -1711,15 +1711,15 @@ namespace OpenUtauMobile.ViewModels
             }
             UProject project = DocManager.Inst.Project;
             UTrack track = DocManager.Inst.Project.tracks[EditingPart.trackNo];
-            if (!track.TryGetExpDescriptor(project, PrimaryExpressionAbbr, out _editingExpressionDescriptor)) // 尝试从名称（如DYN）获取描述器
+            if (!track.TryGetExpDescriptor(project, PrimaryExpressionAbbr, out _editingExpressionDescriptor)) // Try to get descriptor by abbreviation (e.g. DYN)
             {
-                // 失败则清空描述器并返回
+                // Failed — clear descriptor and return
                 _editingExpressionDescriptor = null;
                 return;
             }
             if (_editingExpressionDescriptor.max <= _editingExpressionDescriptor.min)
             {
-                // 无效的描述器
+                // Invalid descriptor
                 return;
             }
             _lastExpTick = (int)PianoRollTransformer.ActualToLogicalX(point.X) - EditingPart.position;
@@ -1727,9 +1727,9 @@ namespace OpenUtauMobile.ViewModels
             _resetExpressionUndoScope = new UndoScope();
         }
         /// <summary>
-        /// 更新重置表情曲线
+        /// Continues resetting an expression curve as the pointer moves.
         /// </summary>
-        /// <param name="point">实际坐标</param>
+        /// <param name="point">Actual canvas coordinates.</param>
         public void UpdateResetExpression(SKPoint point)
         {
             if (EditingPart == null || _editingExpressionDescriptor == null)
@@ -1747,7 +1747,7 @@ namespace OpenUtauMobile.ViewModels
             }
             else
             {
-                // 四舍五入取整
+                // Round to nearest integer
                 //currentValue = (int)Math.Round(currentValueExact);
                 currentExpressionValue = 0;
                 UpdateResetPhonemeExp(currentTick);
@@ -1756,7 +1756,7 @@ namespace OpenUtauMobile.ViewModels
             //_lastExpValue = currentValue;
         }
         /// <summary>
-        /// 更新曲线型表情重置
+        /// Resets a curve-type expression to its default value at the current tick.
         /// </summary>
         /// <param name="currentTick"></param>
         private void UpdateResetCurveExpression(int currentTick)
@@ -1776,7 +1776,7 @@ namespace OpenUtauMobile.ViewModels
             ));
         }
         /// <summary>
-        /// 更新音素表情曲线重置
+        /// Resets a phoneme expression to null (default) at the current tick.
         /// </summary>
         /// <param name="currentTick"></param>
         private void UpdateResetPhonemeExp(int currentTick)
@@ -1795,7 +1795,7 @@ namespace OpenUtauMobile.ViewModels
                     continue;
                 }
                 //float x = hit.note.position + hit.phoneme.position;
-                // !!!只有在范围内的点才进行插值计算！！！
+                // Only interpolate for points within the dragged range
                 //int y = currentValue;
                 //if (x > Math.Max(_lastExpTick, currentTick) && x < Math.Min(_lastExpTick, currentTick))
                 //{
@@ -1818,7 +1818,7 @@ namespace OpenUtauMobile.ViewModels
             }
         }
         /// <summary>
-        /// 结束重置表情曲线
+        /// Ends expression curve reset and commits the undo group.
         /// </summary>
         public void EndResetExpression()
         {
@@ -1923,7 +1923,7 @@ namespace OpenUtauMobile.ViewModels
             Console.WriteLine($"Selected {SelectedNotes.Count} notes.");
         }
         /// <summary>
-        /// 导入轨道，此操作无法撤销
+        /// Imports tracks from loaded projects. This operation cannot be undone.
         /// </summary>
         /// <param name="loadedProjects"></param>
         /// <param name="importTempo"></param>
@@ -1935,7 +1935,7 @@ namespace OpenUtauMobile.ViewModels
         }
 
         /// <summary>
-        /// 干声转换
+        /// Transcribes a dry audio wave part to a voice part.
         /// </summary>
         /// <param name="wavePart"></param>
         public async Task<UVoicePart?> AudioTranscribe(UWavePart wavePart, Action<double, string> progress)
@@ -1950,7 +1950,7 @@ namespace OpenUtauMobile.ViewModels
                 using Some some = new();
                 return some.Transcribe(DocManager.Inst.Project, wavePart, wavPosS =>
                 {
-                    Console.WriteLine($"转换进度: {wavPosS}/{wavDurS}");
+                    Console.WriteLine($"Transcription progress: {wavPosS}/{wavDurS}");
                     progress.Invoke((double)wavPosS / wavDurS * 100, $"{wavePart.name}\n{wavPosS}/{wavDurS}");
                 });
             });
@@ -1959,7 +1959,7 @@ namespace OpenUtauMobile.ViewModels
                 if (task.IsFaulted)
                 {
                     Log.Error(task.Exception, $"Failed to transcribe part {wavePart.name}");
-                    DocManager.Inst.ExecuteCmd(new ErrorMessageNotification("干声转换失败", task.Exception));
+                    DocManager.Inst.ExecuteCmd(new ErrorMessageNotification("Audio transcription failed", task.Exception));
                     return null;
                 }
                 UVoicePart voicePart = task.Result;
@@ -1971,5 +1971,136 @@ namespace OpenUtauMobile.ViewModels
             });
             return result;
         }
+
+        #region Vibrato Edit Methods
+
+        /// <summary>
+        /// 選択ノートの最初のノートのビブラートパラメータを返す。UI 初期値用。
+        /// </summary>
+        public UVibrato? GetVibratoForSelectedNote()
+        {
+            if (SelectedNotes.Count == 0) return null;
+            return SelectedNotes[0].vibrato;
+        }
+
+        /// <summary>
+        /// 選択ノートのビブラートを有効/無効トグルする。
+        /// 有効化時は length=50 (50%) に設定。無効化時は length=0。
+        /// </summary>
+        public void ToggleVibratoForSelectedNotes()
+        {
+            if (SelectedNotes.Count == 0 || EditingPart is not UVoicePart voicePart) return;
+            bool anyEnabled = SelectedNotes.Any(n => n.vibrato.length > 0);
+            float newLength = anyEnabled ? 0f : 50f;
+            using var undo = new UndoScope();
+            foreach (var note in SelectedNotes)
+                DocManager.Inst.ExecuteCmd(new VibratoLengthCommand(voicePart, note, newLength));
+        }
+
+        /// <summary>ビブラート長さ (0〜100 %) を選択ノートに適用する。</summary>
+        public void SetVibratoLength(float length)
+        {
+            if (SelectedNotes.Count == 0 || EditingPart is not UVoicePart voicePart) return;
+            using var undo = new UndoScope();
+            foreach (var note in SelectedNotes)
+                DocManager.Inst.ExecuteCmd(new VibratoLengthCommand(voicePart, note, length));
+        }
+
+        /// <summary>ビブラート深さ (5〜200 cents) を選択ノートに適用する。</summary>
+        public void SetVibratoDepth(float depthCents)
+        {
+            if (SelectedNotes.Count == 0 || EditingPart is not UVoicePart voicePart) return;
+            using var undo = new UndoScope();
+            foreach (var note in SelectedNotes)
+                DocManager.Inst.ExecuteCmd(new VibratoDepthCommand(voicePart, note, depthCents));
+        }
+
+        /// <summary>ビブラート周期 (5〜500 ms) を選択ノートに適用する。</summary>
+        public void SetVibratoPeriod(float periodMs)
+        {
+            if (SelectedNotes.Count == 0 || EditingPart is not UVoicePart voicePart) return;
+            using var undo = new UndoScope();
+            foreach (var note in SelectedNotes)
+                DocManager.Inst.ExecuteCmd(new VibratoPeriodCommand(voicePart, note, periodMs));
+        }
+
+        /// <summary>ビブラートフェードイン (0〜100 %) を選択ノートに適用する。</summary>
+        public void SetVibratoFadeIn(float fadeIn)
+        {
+            if (SelectedNotes.Count == 0 || EditingPart is not UVoicePart voicePart) return;
+            using var undo = new UndoScope();
+            foreach (var note in SelectedNotes)
+                DocManager.Inst.ExecuteCmd(new VibratoFadeInCommand(voicePart, note, fadeIn));
+        }
+
+        /// <summary>ビブラートフェードアウト (0〜100 %) を選択ノートに適用する。</summary>
+        public void SetVibratoFadeOut(float fadeOut)
+        {
+            if (SelectedNotes.Count == 0 || EditingPart is not UVoicePart voicePart) return;
+            using var undo = new UndoScope();
+            foreach (var note in SelectedNotes)
+                DocManager.Inst.ExecuteCmd(new VibratoFadeOutCommand(voicePart, note, fadeOut));
+        }
+
+        #endregion
+
+    #region Phoneme Edit Methods
+
+        /// <summary>
+        /// 指定インデックスのフォネームのオフセット（ティック）を設定する。
+        /// 0 を渡すとオーバーライドをクリアする。
+        /// </summary>
+        public void SetPhonemeOffset(UNote note, int phonemeIndex, int offsetTicks)
+        {
+            if (EditingPart is not UVoicePart voicePart) return;
+            using var undo = new UndoScope();
+            DocManager.Inst.ExecuteCmd(new PhonemeOffsetCommand(voicePart, note, phonemeIndex, offsetTicks));
+        }
+
+        /// <summary>
+        /// 指定インデックスのフォネームのプレアッター差分（ms）を設定する。
+        /// 0 を渡すとオーバーライドをクリアする。
+        /// </summary>
+        public void SetPhonemePreutter(UNote note, int phonemeIndex, float deltaMsec)
+        {
+            if (EditingPart is not UVoicePart voicePart) return;
+            using var undo = new UndoScope();
+            DocManager.Inst.ExecuteCmd(new PhonemePreutterCommand(voicePart, note, phonemeIndex, deltaMsec));
+        }
+
+        /// <summary>
+        /// 指定インデックスのフォネームのオーバーラップ差分（ms）を設定する。
+        /// 0 を渡すとオーバーライドをクリアする。
+        /// </summary>
+        public void SetPhonemeOverlap(UNote note, int phonemeIndex, float deltaMsec)
+        {
+            if (EditingPart is not UVoicePart voicePart) return;
+            using var undo = new UndoScope();
+            DocManager.Inst.ExecuteCmd(new PhonemeOverlapCommand(voicePart, note, phonemeIndex, deltaMsec));
+        }
+
+        /// <summary>
+        /// 指定インデックスのフォネームエイリアスを上書きする。
+        /// null を渡すとオーバーライドをクリアする。
+        /// </summary>
+        public void SetPhonemeAlias(UNote note, int phonemeIndex, string? alias)
+        {
+            if (EditingPart is not UVoicePart voicePart) return;
+            using var undo = new UndoScope();
+            DocManager.Inst.ExecuteCmd(new ChangePhonemeAliasCommand(voicePart, note, phonemeIndex, alias));
+        }
+
+        /// <summary>
+        /// 選択中の全ノートのフォネームタイミングオーバーライドを一括クリアする。
+        /// </summary>
+        public void ClearPhonemeTimingForSelectedNotes()
+        {
+            if (SelectedNotes.Count == 0 || EditingPart is not UVoicePart voicePart) return;
+            using var undo = new UndoScope();
+            foreach (var note in SelectedNotes)
+                DocManager.Inst.ExecuteCmd(new ClearPhonemeTimingCommand(voicePart, note));
+        }
+
+    #endregion
     }
 }
