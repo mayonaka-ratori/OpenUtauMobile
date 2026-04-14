@@ -296,11 +296,13 @@ namespace OpenUtauMobile.Utils
             {
                 throw new InvalidOperationException("ExternalStorageService is not initialized. Call ObjectProvider.Initialize() first.");
             }
-            if (!await ExternalStorageService.HasManageExternalStoragePermissionAsync())
+            if (await ExternalStorageService.HasManageExternalStoragePermissionAsync())
             {
-                ExternalStorageService.RequestManageExternalStoragePermission();
+                return true;
             }
-            return true;
+            // Android 11+: launches system settings screen; user must grant and retry
+            ExternalStorageService.RequestManageExternalStoragePermission();
+            return false;
         }
     }
 }
