@@ -68,6 +68,8 @@ namespace OpenUtauMobile.ViewModels
         /// 是否安装到额外歌手目录
         /// </summary>
         [Reactive] public bool InstallToAdditionalSingersPath { get; set; } = Preferences.Default.InstallToAdditionalSingersPath;
+        [Reactive] public bool TelemetryOptIn { get; set; } = Preferences.Default.TelemetryOptIn;
+        [Reactive] public bool CrashReportShareOptIn { get; set; } = Preferences.Default.CrashReportShareOptIn;
         public SettingsViewModel()
         {
             SelectedPitchDisplayPrecision = PitchDisplayPrecision.FirstOrDefault(p => p.Key == Preferences.Default.PitchDisplayPrecision);
@@ -107,6 +109,8 @@ namespace OpenUtauMobile.ViewModels
             Preferences.Default.DiffSingerStepsPitch = DiffSingerStepsPitch;
             Preferences.Default.AdditionalSingerPath = AdditionalSingerPath;
             Preferences.Default.InstallToAdditionalSingersPath = InstallToAdditionalSingersPath;
+            Preferences.Default.TelemetryOptIn = TelemetryOptIn;
+            Preferences.Default.CrashReportShareOptIn = CrashReportShareOptIn;
             Preferences.Save();
         }
     }

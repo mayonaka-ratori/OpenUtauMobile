@@ -42,7 +42,23 @@ These patches were already present when this fork was created.
 
 ## Patches added by this fork
 
-(None yet. Add entries here as modifications are made.)
+### 6. Atomic write for Save / AutoSave
+
+- **Date**: 2026-04-14
+- **File**: OpenUtau.Core/Format/USTx.cs (`Save()` lines 97-112, `AutoSave()` lines 114-127)
+- **Change**: Replaced `File.WriteAllText(filePath, ...)` with temp-file + `File.Move(overwrite: true)` pattern in both `Save()` and `AutoSave()`. Temp file is `filePath + ".tmp"`.
+- **Reason**: On mobile, the OS can suspend the process mid-write during background transitions, leaving a corrupt partial file. Atomic rename ensures the destination is always complete or absent.
+- **Upstream PR**: N/A — mobile-specific risk mitigation
+
+### 7. TelemetryOptIn / CrashReportShareOptIn preference fields
+
+- **Date**: 2026-04-14
+- **File**: OpenUtau.Core/Util/Preferences.cs (`SerializablePreferences`, within `#region OpenUtau Mobile 特定选项`)
+- **Change**: Added two fields:
+  - `public bool TelemetryOptIn = true;` — controls whether local crash/performance telemetry is recorded
+  - `public bool CrashReportShareOptIn = false;` — gates whether crash signatures are included in exported support bundles
+- **Reason**: Telemetry opt-in state must persist across sessions. Storing in `SerializablePreferences` reuses the existing JSON serialisation / save path. Both fields are mobile-only and have no effect on the desktop build.
+- **Upstream PR**: N/A — mobile-specific
 
 ### Template for new entries
 

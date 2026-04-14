@@ -1,8 +1,10 @@
 ﻿using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
+using Microsoft.Maui.LifecycleEvents;
 using OpenUtau.Core;
 using OpenUtauMobile.Resources.Strings;
 using OpenUtauMobile.Utils.Permission;
+using OpenUtauMobile.Utils.Telemetry;
 using Serilog;
 using System.Text;
 #if ANDROID
@@ -33,6 +35,18 @@ namespace OpenUtauMobile
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 })
+                .ConfigureLifecycleEvents(lifecycle => {
+#if ANDROID
+                    lifecycle.AddAndroid(android => {
+                        android.OnPause(activity => DocManager.Inst.AutoSave());
+                        android.OnStop(activity => DocManager.Inst.AutoSave());
+                    });
+#elif IOS
+                    lifecycle.AddiOS(ios => {
+                        ios.DidEnterBackground(app => DocManager.Inst.AutoSave());
+                    });
+#endif
+                })
                 ;
 
 #if DEBUG
@@ -45,6 +59,8 @@ namespace OpenUtauMobile
             Log.Information("OS version: " + DeviceInfo.Current.VersionString);
             Log.Information("Manufacturer: " + DeviceInfo.Current.Manufacturer);
             Log.Information("Model: " + DeviceInfo.Current.Model);
+
+            TelemetryService.Inst.StartSession();
 
             return builder.Build();
         }
@@ -65,9 +81,17 @@ namespace OpenUtauMobile
                 //    .WriteTo.Sink(DebugViewModel.Sink.Inst))
                 .CreateLogger();
             AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler((sender, args) => {
-                Log.Error((Exception)args.ExceptionObject, "Unhandled exception"); // unhandled exception
-                DocManager.Inst.ExecuteCmd(new ErrorMessageNotification((Exception)args.ExceptionObject));
+                var ex = (Exception)args.ExceptionObject;
+                Log.Error(ex, "Unhandled exception"); // unhandled exception
+                TelemetryService.Inst.ReportException(ex, "AppDomain");
+                DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(ex));
             });
+            // 未 await の Task から投げられた例外を捕捉する
+            TaskScheduler.UnobservedTaskException += (s, e) => {
+                Log.Error(e.Exception, "UnobservedTaskException");
+                TelemetryService.Inst.ReportException(e.Exception, "TaskScheduler");
+                e.SetObserved(); // クラッシュではなくログのみ
+            };
             Log.Information("==========开始记录日志==========");
         }
     }

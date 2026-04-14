@@ -293,7 +293,25 @@ namespace OpenUtauMobile.Resources.Strings {
                 return ResourceManager.GetString("CompressionEncodingMethodPrompt", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   サポートバンドルにクラッシュ署名を含めるかの設定ラベル。
+        /// </summary>
+        internal static string CrashReportShareOptIn {
+            get {
+                return ResourceManager.GetString("CrashReportShareOptIn", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   CrashReportShareOptIn のツールチップ。
+        /// </summary>
+        internal static string CrashReportShareOptInTooltip {
+            get {
+                return ResourceManager.GetString("CrashReportShareOptInTooltip", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   查找类似 Confirm 的本地化字符串。
         /// </summary>
@@ -330,6 +348,15 @@ namespace OpenUtauMobile.Resources.Strings {
             }
         }
         
+        /// <summary>
+        ///   診断タブのラベル。
+        /// </summary>
+        internal static string Diagnostics {
+            get {
+                return ResourceManager.GetString("Diagnostics", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   查找类似 Dependency Management 的本地化字符串。
         /// </summary>
@@ -587,7 +614,25 @@ namespace OpenUtauMobile.Resources.Strings {
                 return ResourceManager.GetString("ExportProject", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Export Support Bundle ボタンラベル。
+        /// </summary>
+        internal static string ExportSupportBundle {
+            get {
+                return ResourceManager.GetString("ExportSupportBundle", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   サポートバンドルエクスポート失敗トースト。
+        /// </summary>
+        internal static string ExportSupportBundleErrorToast {
+            get {
+                return ResourceManager.GetString("ExportSupportBundleErrorToast", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   查找类似 File &amp; Storage 的本地化字符串。
         /// </summary>
@@ -2108,7 +2153,25 @@ namespace OpenUtauMobile.Resources.Strings {
                 return ResourceManager.GetString("ThemeTooltip", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   テレメトリ収集 ON/OFF スイッチラベル。
+        /// </summary>
+        internal static string TelemetryOptIn {
+            get {
+                return ResourceManager.GetString("TelemetryOptIn", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   TelemetryOptIn のツールチップ。
+        /// </summary>
+        internal static string TelemetryOptInTooltip {
+            get {
+                return ResourceManager.GetString("TelemetryOptInTooltip", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   查找类似 Tick Time 的本地化字符串。
         /// </summary>

@@ -123,6 +123,27 @@
   <data name="AppearanceAndLanguage" xml:space="preserve">
     <value>外观与语言</value>
   </data>
+  <data name="Diagnostics" xml:space="preserve">
+    <value>诊断</value>
+  </data>
+  <data name="TelemetryOptIn" xml:space="preserve">
+    <value>本地遥测</value>
+  </data>
+  <data name="TelemetryOptInTooltip" xml:space="preserve">
+    <value>在本地记录崩溃和性能数据，不向外部发送。</value>
+  </data>
+  <data name="CrashReportShareOptIn" xml:space="preserve">
+    <value>包含在支持包中</value>
+  </data>
+  <data name="CrashReportShareOptInTooltip" xml:space="preserve">
+    <value>导出时将崩溃签名包含在支持包中。</value>
+  </data>
+  <data name="ExportSupportBundle" xml:space="preserve">
+    <value>导出诊断信息</value>
+  </data>
+  <data name="ExportSupportBundleErrorToast" xml:space="preserve">
+    <value>导出失败。</value>
+  </data>
   <data name="AppName" xml:space="preserve">
     <value>OpenUtau Mobile</value>
   </data>

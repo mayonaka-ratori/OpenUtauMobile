@@ -4,6 +4,7 @@ using OpenUtau.Classic;
 using OpenUtau.Core;
 using OpenUtau.Core.Util;
 using OpenUtauMobile.Utils;
+using OpenUtauMobile.Utils.Telemetry;
 using OpenUtauMobile.Views.Controls;
 using OpenUtauMobile.Views.Utils;
 using OpenUtauMobile.Resources.Strings;
@@ -120,6 +121,8 @@ public partial class SplashScreenPage : ContentPage, ICmdSubscriber
                 }
                 return; // 初期化失敗時は全エラーパスで HomePage ナビゲーションを防止 (CR3-01)
             }
+            TelemetryService.Inst.MarkStartupComplete(); // 起動時間を記録
+            TelemetryService.Inst.CaptureProjectSnapshot(); // 初期スナップショット
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
                 Navigation.PushModalAsync(new HomePage(), false); // 模式导航到主页

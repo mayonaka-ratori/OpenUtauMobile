@@ -123,6 +123,27 @@
   <data name="AppearanceAndLanguage" xml:space="preserve">
     <value>Appearance &amp; Language</value>
   </data>
+  <data name="Diagnostics" xml:space="preserve">
+    <value>Diagnostics</value>
+  </data>
+  <data name="TelemetryOptIn" xml:space="preserve">
+    <value>Local Telemetry</value>
+  </data>
+  <data name="TelemetryOptInTooltip" xml:space="preserve">
+    <value>Record crash and performance data locally. No data is sent externally.</value>
+  </data>
+  <data name="CrashReportShareOptIn" xml:space="preserve">
+    <value>Include in Support Bundle</value>
+  </data>
+  <data name="CrashReportShareOptInTooltip" xml:space="preserve">
+    <value>Include crash signatures in exported support bundles.</value>
+  </data>
+  <data name="ExportSupportBundle" xml:space="preserve">
+    <value>Export Support Bundle</value>
+  </data>
+  <data name="ExportSupportBundleErrorToast" xml:space="preserve">
+    <value>Failed to export support bundle.</value>
+  </data>
   <data name="AppName" xml:space="preserve">
     <value>OpenUtau Mobile</value>
   </data>

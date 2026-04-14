@@ -30,6 +30,7 @@
                 <Button x:Name="ButtonTabRenderAndPerformance" Text="{Static res:AppResources.RenderAndPerformance}" Clicked="ButtonTab_Clicked" Style="{StaticResource StyleTabButton}"/>
                 <Button x:Name="ButtonTabFileAndStorage" Text="{Static res:AppResources.FileAndStorage}" Clicked="ButtonTab_Clicked" Style="{StaticResource StyleTabButton}" />
                 <Button x:Name="ButtonTabAppearanceAndLanguage" Text="{Static res:AppResources.AppearanceAndLanguage}" Clicked="ButtonTab_Clicked" Style="{StaticResource StyleTabButton}" />
+                <Button x:Name="ButtonTabDiagnostics" Text="{Static res:AppResources.Diagnostics}" Clicked="ButtonTab_Clicked" Style="{StaticResource StyleTabButton}" />
             </HorizontalStackLayout>
         </ScrollView>
         <BoxView Grid.Row="2" />
@@ -201,6 +202,33 @@
                             <Label Grid.Column="1" Text="?" ToolTipProperties.Text="{Static res:AppResources.InstallToAdditionalSingersPathTooltip}" />
                             <Switch Grid.Column="3" Margin="10" IsToggled="{Binding InstallToAdditionalSingersPath}" />
                         </Grid>
+                        <BoxView Grid.Row="1" Margin="10,0,10,0" Color="{DynamicResource ItemDivider}"/>
+                    </Grid>
+                </VerticalStackLayout>
+            </ScrollView>
+        </Grid>
+        <!-- 诊断 -->
+        <Grid Grid.Row="3" x:Name="GridDiagnostics" IsVisible="False">
+            <ScrollView>
+                <VerticalStackLayout>
+                    <Grid RowDefinitions="50,.5">
+                        <Grid ColumnDefinitions="Auto, 50, *, 30">
+                            <Label Text="{Static res:AppResources.TelemetryOptIn}" Margin="20,0,20,0"/>
+                            <Label Grid.Column="1" Text="?" ToolTipProperties.Text="{Static res:AppResources.TelemetryOptInTooltip}" />
+                            <Switch x:Name="SwitchTelemetryOptIn" Grid.Column="2" VerticalOptions="Center" IsToggled="{Binding TelemetryOptIn}"/>
+                        </Grid>
+                        <BoxView Grid.Row="1" Margin="10,0,10,0" Color="{DynamicResource ItemDivider}"/>
+                    </Grid>
+                    <Grid RowDefinitions="50,.5" IsVisible="{Binding TelemetryOptIn}">
+                        <Grid ColumnDefinitions="Auto, 50, *, 30">
+                            <Label Text="{Static res:AppResources.CrashReportShareOptIn}" Margin="20,0,20,0"/>
+                            <Label Grid.Column="1" Text="?" ToolTipProperties.Text="{Static res:AppResources.CrashReportShareOptInTooltip}" />
+                            <Switch x:Name="SwitchCrashReportShareOptIn" Grid.Column="2" VerticalOptions="Center" IsToggled="{Binding CrashReportShareOptIn}"/>
+                        </Grid>
+                        <BoxView Grid.Row="1" Margin="10,0,10,0" Color="{DynamicResource ItemDivider}"/>
+                    </Grid>
+                    <Grid RowDefinitions="Auto,.5" IsVisible="{Binding TelemetryOptIn}">
+                        <Button x:Name="ButtonExportSupportBundle" Text="{Static res:AppResources.ExportSupportBundle}" Clicked="ButtonExportSupportBundle_Clicked" Margin="20,10"/>
                         <BoxView Grid.Row="1" Margin="10,0,10,0" Color="{DynamicResource ItemDivider}"/>
                     </Grid>
                 </VerticalStackLayout>

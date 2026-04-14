@@ -213,6 +213,8 @@ namespace OpenUtau.Core.Util {
             //public PianoSampleType PianoSample = PianoSampleType.Mute; // 钢琴音类型
             public int PianoSample = 0; // 钢琴音类型 0: 静音 1: 正弦波 2: 钢琴
             public bool WarnOnRenderPitch = true; // 是否在按下渲染按钮时提示会覆盖原有音高
+            public bool TelemetryOptIn = true; // テレメトリ収集 ON/OFF (ローカルログのみ、外部送信なし)
+            public bool CrashReportShareOptIn = false; // サポートバンドルエクスポート時に含めるか
             #endregion
         }
     }

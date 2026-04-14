@@ -12,6 +12,7 @@ using OpenUtau.Core.Render;
 using OpenUtau.Core.Ustx;
 using OpenUtau.Core.Util;
 using OpenUtauMobile.Utils;
+using OpenUtauMobile.Utils.Telemetry;
 using OpenUtauMobile.ViewModels;
 using OpenUtauMobile.Views.DrawableObjects;
 using OpenUtauMobile.Views.Utils;
@@ -30,6 +31,7 @@ public partial class EditPage
 #if DEBUG
         var _sw = PaintSurfaceProfiler.Start();
 #endif
+        var _swTel = System.Diagnostics.Stopwatch.StartNew();
         try
         {
         // Clear canvas
@@ -81,6 +83,7 @@ public partial class EditPage
 #if DEBUG
             PaintSurfaceProfiler.End(_sw, nameof(TrackCanvas));
 #endif
+            TelemetryService.Inst.ReportSlowFrame(_swTel.Elapsed.TotalMilliseconds);
         }
     }
 
@@ -89,6 +92,7 @@ public partial class EditPage
 #if DEBUG
         var _sw = PaintSurfaceProfiler.Start();
 #endif
+        var _swTel = System.Diagnostics.Stopwatch.StartNew();
         try
         {
         // Clear canvas
@@ -130,6 +134,7 @@ public partial class EditPage
 #if DEBUG
             PaintSurfaceProfiler.End(_sw, nameof(PianoRollCanvas));
 #endif
+            TelemetryService.Inst.ReportSlowFrame(_swTel.Elapsed.TotalMilliseconds);
         }
     }
 
