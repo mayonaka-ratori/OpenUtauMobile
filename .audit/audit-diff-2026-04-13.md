@@ -180,7 +180,9 @@ dotnet build OpenUtauMobile/OpenUtauMobile.csproj -f net9.0-android -c Debug
 → 0 エラー / ~1726 警告 (既存)
 
 dotnet test OpenUtauMobile.Tests/ -f net9.0
-→ 17/17 pass (Phase 3 テスト追加後: +5件)
+→ 14/14 pass (net9.0 実測値)
+  ※ EditViewModelPhase3Tests.cs は #if ANDROID のため net9.0 では非実行
+     Android ビルドでは +3件の計 17件になる想定
 ```
 
 ---
@@ -204,3 +206,42 @@ dotnet test OpenUtauMobile.Tests/ -f net9.0
 | C-05 | Medium | PlaybackTickBg MISS 36.8% — キャッシュ戦略検討待ち |
 | P3-N01 | Medium | `DrawVibratoOverlay` マルチテンポ非対応 |
 | P3-N02 | Low | VibratoPanel 初期値問題 — デバイステストで再現確認待ち |
+
+---
+
+## 現況スナップショット — 2026-04-14
+
+> roadmap-v3 「最初の4項目」の実施状況確認 (着手判断用)
+
+### ① Phase 3 テスト追加 ✅ 完了
+
+| テストファイル | 追加件数 | 実行条件 |
+|--------------|---------|---------|
+| `SmokeTests.cs` | +2件 | `net9.0` で実行、14/14 合格 |
+| `EditViewModelPhase3Tests.cs` (新規) | +3件 | `#if ANDROID` のみ — Reflection で API 契約確認 |
+
+### ② 実機テスト ⬜ 未着手
+
+Pixel 10 Pro XL での確認は未実施。
+
+| 確認項目 |
+|---------|
+| P3-A: VibratoPanel 表示 / スライダー → 波形反映 |
+| P3-B: PhonemeCanvas タップ → ActionSheet → Undo |
+| P3-C: クオンタイズボタン → グリッド変化 |
+| OP-01: ファイルオープン時の権限ダイアログフロー |
+| BUG-D: シャドウ境界の目視確認 |
+| C-04/C-05: logcat で 11.3% / 36.8% の再計測 |
+
+### ③ 未対応5件 (E-01〜E-03 / BUG-D / OP-01) ✅ 全件完了 (上記参照)
+
+### ④ Phase 0-2 オートセーブ ⬜ 未着手・実装ゼロ
+
+roadmap-v3 が「最初の1コミット」として推奨。スコープ:
+- 30〜60秒間隔の定期保存 + バックグラウンド遷移時即時保存
+- 原子的書き込み (一時ファイル → rename)
+- 次回起動時の復元 UI
+- レンダリング無効で開くセーフモード
+- roadmap は **0-1 テレメトリと同時導入**を推奨 (0-1 も未着手)
+
+**Phase 4 の推奨着手順**: 実機テスト → 0-2 オートセーブ (+0-1 テレメトリ同時)
