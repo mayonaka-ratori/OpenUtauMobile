@@ -41,11 +41,14 @@ Expected: **0 errors** / **12/12 tests pass** / 1605 warnings (pre-existing, not
 ## Current Focus
 
 - **Phase 2**: ✅ COMPLETE (2026-03-21) — see `.claude/progress-phase2.md`
-- **Phase 2.5**: Refactoring IN PROGRESS
-  - **Active**: Step 8c — undo error-path migration (StartCreatePart / RemoveSelectedParts / CreateDefaultNote / PasteNotes)
-  - **Next**: Step 8d (ForceEndAllInteractions orphaned) → Phase 2.5 complete → Phase 3
-- **Key commits**: `12de33f` (8b spanning), `7eba112` (8a simple), `4e8d109` (multi-target test)
-- **EditPage**: 4 partial files (xaml.cs 1694L + Rendering.cs + Toolbar.cs + CmdSubscriber.cs)
+- **Phase 2.5**: ✅ COMPLETE (2026-04-12, 44/44 UndoScope 移行) — see `.claude/progress-phase2.5.md`
+- **Phase 3**: ✅ COMPLETE (2026-04-14) — see `.claude/progress-phase3.md`
+  - ✅ Step A: ビブラート編集 UI (A-1 ViewModel / A-2,3 XAML+Toolbar / A-4 波形オーバーレイ)
+  - ✅ Step B: フォネーム編集 (B-1 ViewModel / B-2 タップダイアログ)
+  - ✅ Step C: クオンタイズボタングループ (C-1)
+  - ✅ 後続: テスト追加 (17/17) + E-01/E-02/E-03 + OP-01 fix + BUG-D close
+- **Phase 4**: 未着手 — デバイステスト → Phase 0/1 残タスク
+- **EditPage**: 4 partial files (xaml.cs ~1750L + Rendering.cs + Toolbar.cs + CmdSubscriber.cs)
 
 ## Test Device
 
