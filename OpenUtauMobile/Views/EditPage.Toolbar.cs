@@ -932,4 +932,11 @@ public partial class EditPage
     }
 
     #endregion
+
+    private void ButtonSafeModeExit_Clicked(object sender, EventArgs e)
+    {
+        Preferences.Default.PreRender = true;
+        SafeModeBanner.IsVisible = false;
+        SafeModeRow.Height = 0;
+    }
 }

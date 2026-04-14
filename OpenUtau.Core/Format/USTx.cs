@@ -99,7 +99,9 @@ namespace OpenUtau.Core.Format {
                 project.ustxVersion = kUstxVersion;
                 project.FilePath = filePath;
                 project.BeforeSave();
-                File.WriteAllText(filePath, Yaml.DefaultSerializer.Serialize(project), Encoding.UTF8);
+                var tmpSavePath = filePath + ".tmp";
+                File.WriteAllText(tmpSavePath, Yaml.DefaultSerializer.Serialize(project), Encoding.UTF8);
+                File.Move(tmpSavePath, filePath, overwrite: true);
                 project.Saved = true;
                 project.AfterSave();
                 Preferences.Default.RecoveryPath = string.Empty;
@@ -115,7 +117,9 @@ namespace OpenUtau.Core.Format {
             try {
                 project.ustxVersion = kUstxVersion;
                 project.BeforeSave();
-                File.WriteAllText(filePath, Yaml.DefaultSerializer.Serialize(project), Encoding.UTF8);
+                var tmpAutoSavePath = filePath + ".tmp";
+                File.WriteAllText(tmpAutoSavePath, Yaml.DefaultSerializer.Serialize(project), Encoding.UTF8);
+                File.Move(tmpAutoSavePath, filePath, overwrite: true);
                 project.AfterSave();
                 Preferences.Default.RecoveryPath = filePath;
                 Preferences.Save();

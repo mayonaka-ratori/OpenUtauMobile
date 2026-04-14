@@ -195,8 +195,13 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
     private const float VibratoRenderStepPx = 2f;
     #endregion
 
-    public EditPage(string path)
+    private readonly bool _recovered;
+    internal readonly bool _safeMode;
+
+    public EditPage(string path, bool recovered = false, bool safeMode = false)
     {
+        _recovered = recovered;
+        _safeMode = safeMode;
         InitializeComponent();
         _viewModel = (EditViewModel)BindingContext;
         _viewModel.Path = path;
@@ -207,7 +212,15 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
             {
                 // 添加加载项目work
                 _viewModel.SetWork(WorkType.LoadingProject, path, detail: path);
-                await _viewModel.Init();
+                if (_recovered)
+                {
+                    // 復元モード: RecoveryProject() が LoadProjectNotification を発火する
+                    await Task.Run(() => Formats.RecoveryProject(new[] { path }));
+                }
+                else
+                {
+                    await _viewModel.Init();
+                }
                 // P2-B1: Auto-select first VoicePart after project load to enable note rendering
                 var firstVoicePart = DocManager.Inst.Project?.parts?.OfType<UVoicePart>().FirstOrDefault();
                 if (firstVoicePart != null && _viewModel.SelectedParts.Count == 0)
@@ -219,6 +232,12 @@ public partial class EditPage : ContentPage, ICmdSubscriber, IDisposable
                 }
                 // 移除加载项目work
                 _viewModel.RemoveWork(path);
+                if (_safeMode)
+                {
+                    Preferences.Default.PreRender = false;
+                    SafeModeBanner.IsVisible = true;
+                    SafeModeRow.Height = GridLength.Auto;
+                }
                 InitMagnifier();
                 InitExpressionMagnifier();
                 //EnableAndroidBlur();

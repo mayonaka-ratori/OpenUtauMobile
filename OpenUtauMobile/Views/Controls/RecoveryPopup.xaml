@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<toolkit:Popup xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+               xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+               xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+               Color="Transparent"
+               x:Class="OpenUtauMobile.Views.Controls.RecoveryPopup">
+
+    <Border Stroke="Transparent"
+            StrokeThickness="0"
+            Background="{AppThemeBinding Dark=#444444, Light=White}"
+            Padding="0"
+            WidthRequest="360"
+            StrokeShape="RoundRectangle 10">
+        <Grid RowDefinitions="40, Auto, 60">
+            <!-- タイトルバー -->
+            <Border BackgroundColor="#66CCFF" Padding="10,2,10,2">
+                <Label Text="セッションの復元" FontSize="20" HorizontalTextAlignment="Start" VerticalTextAlignment="Center"/>
+            </Border>
+            <!-- メッセージ -->
+            <ScrollView Grid.Row="1" MinimumHeightRequest="60">
+                <Label Text="前回のセッションが自動保存されています。復元しますか？" Margin="10" LineBreakMode="WordWrap" FontSize="16" HorizontalTextAlignment="Start" VerticalTextAlignment="Center"/>
+            </ScrollView>
+            <!-- ボタン -->
+            <HorizontalStackLayout Grid.Row="2" Spacing="6" HorizontalOptions="End" Margin="10">
+                <Button Text="破棄" x:Name="ButtonDiscard" Clicked="ButtonDiscard_Clicked"
+                        WidthRequest="70" CornerRadius="25" BackgroundColor="Transparent"
+                        TextColor="{DynamicResource Primary}" BorderColor="{DynamicResource Primary}" BorderWidth="0.5"/>
+                <Button Text="セーフモード" x:Name="ButtonSafe" Clicked="ButtonSafe_Clicked"
+                        WidthRequest="110" CornerRadius="25" BackgroundColor="Transparent"
+                        TextColor="{DynamicResource Primary}" BorderColor="{DynamicResource Primary}" BorderWidth="0.5"/>
+                <Button Text="復元" x:Name="ButtonRecover" Clicked="ButtonRecover_Clicked"
+                        WidthRequest="70" CornerRadius="25"
+                        BackgroundColor="{DynamicResource Primary}" BorderWidth="0"/>
+            </HorizontalStackLayout>
+        </Grid>
+    </Border>
+</toolkit:Popup>

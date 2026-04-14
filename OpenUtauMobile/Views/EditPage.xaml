@@ -70,6 +70,7 @@
     <Grid x:Name="RootLayout" >
         <Grid.RowDefinitions>
             <RowDefinition Height="40" />
+            <RowDefinition x:Name="SafeModeRow" Height="0" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <!-- 标题栏 -->
@@ -86,8 +87,17 @@
                 <Button Grid.Column="3" Text="…" x:Name="ButtonMore" Clicked="ButtonMore_Clicked" Style="{StaticResource TitleBarButtonStyle}"/>
             </Grid>
         </Grid>
+        <!-- セーフモードバナー -->
+        <Grid x:Name="SafeModeBanner" Grid.Row="1" BackgroundColor="#CC8800" IsVisible="False">
+            <Grid ColumnDefinitions="*, Auto" Padding="8,4">
+                <Label Text="セーフモード: レンダリング無効" VerticalTextAlignment="Center" TextColor="White" FontSize="14"/>
+                <Button Grid.Column="1" Text="解除" Clicked="ButtonSafeModeExit_Clicked"
+                        WidthRequest="60" HeightRequest="28" FontSize="12" Padding="0"
+                        BackgroundColor="Transparent" TextColor="White" BorderColor="White" BorderWidth="1" CornerRadius="14"/>
+            </Grid>
+        </Grid>
         <!-- 主体 -->
-        <AbsoluteLayout x:Name="MainLayout" Grid.Row="1">
+        <AbsoluteLayout x:Name="MainLayout" Grid.Row="2">
             <!-- 走带 -->
             <Grid x:Name="Track" AbsoluteLayout.LayoutBounds="{Binding BoundTrack}" AbsoluteLayout.LayoutFlags="WidthProportional">
                 <AbsoluteLayout>
@@ -350,6 +360,26 @@
                                 </Grid>
                             </HorizontalStackLayout>
                         </Border>
+                        <!-- クオンタイズボタングループ (1/4, 1/8, 1/16, 1/32, 三連符) -->
+                        <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource CircularToolbarContainerStyle}" HorizontalOptions="End">
+                            <HorizontalStackLayout x:Name="QuantizeButtonGroup" Spacing="0">
+                                <Grid RowDefinitions="40" WidthRequest="36">
+                                    <Button x:Name="BtnSnap4"  Text="1/4"  FontSize="10" Padding="0" Style="{StaticResource CircularToolbarButtonStyle}" Clicked="BtnSnap_Clicked" />
+                                </Grid>
+                                <Grid RowDefinitions="40" WidthRequest="36">
+                                    <Button x:Name="BtnSnap8"  Text="1/8"  FontSize="10" Padding="0" Style="{StaticResource CircularToolbarButtonStyle}" Clicked="BtnSnap_Clicked" />
+                                </Grid>
+                                <Grid RowDefinitions="40" WidthRequest="36">
+                                    <Button x:Name="BtnSnap16" Text="1/16" FontSize="10" Padding="0" Style="{StaticResource CircularToolbarButtonStyle}" Clicked="BtnSnap_Clicked" />
+                                </Grid>
+                                <Grid RowDefinitions="40" WidthRequest="36">
+                                    <Button x:Name="BtnSnap32" Text="1/32" FontSize="10" Padding="0" Style="{StaticResource CircularToolbarButtonStyle}" Clicked="BtnSnap_Clicked" />
+                                </Grid>
+                                <Grid RowDefinitions="40" WidthRequest="36">
+                                    <Button x:Name="BtnSnapTriplet" Text="3連" FontSize="10" Padding="0" Style="{StaticResource CircularToolbarButtonStyle}" Clicked="BtnSnap_Clicked" />
+                                </Grid>
+                            </HorizontalStackLayout>
+                        </Border>
                         <VerticalStackLayout Grid.Row="1" Grid.Column="1" HorizontalOptions="End" WidthRequest="40">
                             <Grid RowDefinitions="40" IsVisible="{Binding IsShowRenderPitchButton}">
                                 <Button Text="AI" x:Name="ButtonRenderPitch" Style="{StaticResource CircularToolbarButtonStyle}" Clicked="ButtonRenderPitch_Clicked"/>
@@ -401,8 +431,32 @@
                                 <Button x:Name="ButtonSwitchExpressionEraserMode" Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3" Text="{Static res:AppResources.Eraser}" Padding="0" BackgroundColor="Transparent" Clicked="ButtonSwitchExpressionEditMode_Clicked"/>
                             </Grid>
                         </ScrollView>
-                        <!-- 表情绘制 -->
-                        <skia:SKCanvasView x:Name="ExpressionCanvas" Grid.Column="1" EnableTouchEvents="True" PaintSurface="ExpressionCanvas_PaintSurface" Touch="ExpressionCanvas_Touch" />
+                        <!-- 表情绘制 / ビブラートパネル切替エリア -->
+                        <Grid Grid.Column="1">
+                            <skia:SKCanvasView x:Name="ExpressionCanvas" EnableTouchEvents="True" PaintSurface="ExpressionCanvas_PaintSurface" Touch="ExpressionCanvas_Touch" />
+                            <!-- ビブラート編集パネル: NoteEditMode.EditVibrato 時に表示 -->
+                            <ScrollView x:Name="VibratoPanel" IsVisible="False" BackgroundColor="{DynamicResource ExpBackground}" Padding="10,4">
+                                <VerticalStackLayout Spacing="3">
+                                    <!-- ビブラートON/OFF トグル -->
+                                    <Button x:Name="ButtonVibratoToggle" Text="Vibrato ON/OFF" Padding="4,2" Clicked="ButtonVibratoToggle_Clicked" />
+                                    <!-- Length (0〜100%) -->
+                                    <Label x:Name="LabelVibratoLength" Text="Length: 50%" FontSize="11" />
+                                    <Slider x:Name="SliderVibratoLength" Minimum="0" Maximum="100" Value="50" ValueChanged="SliderVibratoLength_ValueChanged" />
+                                    <!-- Depth (5〜200 cents) -->
+                                    <Label x:Name="LabelVibratoDepth" Text="Depth: 35 cents" FontSize="11" />
+                                    <Slider x:Name="SliderVibratoDepth" Minimum="5" Maximum="200" Value="35" ValueChanged="SliderVibratoDepth_ValueChanged" />
+                                    <!-- Period (5〜500 ms) -->
+                                    <Label x:Name="LabelVibratoPeriod" Text="Period: 175 ms" FontSize="11" />
+                                    <Slider x:Name="SliderVibratoPeriod" Minimum="5" Maximum="500" Value="175" ValueChanged="SliderVibratoPeriod_ValueChanged" />
+                                    <!-- Fade In (0〜100%) -->
+                                    <Label x:Name="LabelVibratoFadeIn" Text="Fade In: 25%" FontSize="11" />
+                                    <Slider x:Name="SliderVibratoFadeIn" Minimum="0" Maximum="100" Value="25" ValueChanged="SliderVibratoFadeIn_ValueChanged" />
+                                    <!-- Fade Out (0〜100%) -->
+                                    <Label x:Name="LabelVibratoFadeOut" Text="Fade Out: 25%" FontSize="11" />
+                                    <Slider x:Name="SliderVibratoFadeOut" Minimum="0" Maximum="100" Value="25" ValueChanged="SliderVibratoFadeOut_ValueChanged" />
+                                </VerticalStackLayout>
+                            </ScrollView>
+                        </Grid>
                     </Grid>
                     <!--</materialFrame:MaterialFrame>-->
                     <!-- 控制层 -->

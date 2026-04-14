@@ -7,6 +7,7 @@ using OpenUtauMobile.Utils.Permission;
 using OpenUtauMobile.ViewModels;
 using System.Threading.Tasks;
 using OpenUtau.Core;
+using OpenUtau.Core.Format;
 using OpenUtauMobile.Utils;
 
 namespace OpenUtauMobile.Views;
@@ -15,6 +16,7 @@ public partial class HomePage : ContentPage
 {
     private HomePageViewModel _viewModel;
     private bool _isExit = false; // 退出标志
+    private bool _recoveryCheckDone = false; // 復元チェックは起動時に一度だけ実行
     public HomePage()
 	{
 		InitializeComponent();
@@ -47,10 +49,37 @@ public partial class HomePage : ContentPage
         return true;
     }
 
-    protected override void OnAppearing()
+    protected override async void OnAppearing()
     {
         base.OnAppearing();
         _viewModel.RecentProjectsPaths = new ObservableCollectionExtended<string>(OpenUtau.Core.Util.Preferences.Default.RecentFiles);
+        await CheckAndOfferRecovery();
+    }
+
+    private async Task CheckAndOfferRecovery()
+    {
+        if (_recoveryCheckDone) return;
+        _recoveryCheckDone = true;
+
+        string recoveryPath = OpenUtau.Core.Util.Preferences.Default.RecoveryPath;
+        if (string.IsNullOrEmpty(recoveryPath) || !File.Exists(recoveryPath)) return;
+
+        var popup = new RecoveryPopup();
+        var result = await this.ShowPopupAsync(popup);
+
+        if (result is RecoveryChoice choice)
+        {
+            if (choice == RecoveryChoice.Discard)
+            {
+                OpenUtau.Core.Util.Preferences.Default.RecoveryPath = string.Empty;
+                OpenUtau.Core.Util.Preferences.Save();
+            }
+            else
+            {
+                bool safeMode = choice == RecoveryChoice.RecoverSafe;
+                await Navigation.PushModalAsync(new EditPage(recoveryPath, recovered: true, safeMode: safeMode), false);
+            }
+        }
     }
 
 
