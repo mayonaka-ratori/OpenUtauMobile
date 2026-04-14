@@ -248,6 +248,19 @@ namespace OpenUtau.Core.Render {
                 if (flag != null && flag.Item2.HasValue) {
                     request.flag_Mv = flag.Item2.Value;
                 }
+                // 0-4: Clamp cut_off to prevent CutOffExceedDurationError on malformed OTO.
+                // Negative cut_off means "use N ms from consonant end" and is always a length, not a position,
+                // so clamping only applies to positive (right-side trim) values.
+                if (request.cut_off > 0) {
+                    var totalMs = 1000.0 * request.sample_length / request.sample_fs;
+                    var inLengthMs = totalMs - request.offset - request.cut_off;
+                    if (inLengthMs < 10.0) {
+                        var clampedCutOff = Math.Max(0.0, totalMs - request.offset - 10.0);
+                        Log.Warning("[0-4] cut_off clamped {Old:F1}\u2192{New:F1}ms (totalMs={Total:F1} offset={Off:F1})",
+                            request.cut_off, clampedCutOff, totalMs, request.offset);
+                        request.cut_off = clampedCutOff;
+                    }
+                }
                 Validate(request);
             }
             static void Validate(SynthRequest request) {

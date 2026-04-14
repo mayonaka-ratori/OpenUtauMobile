@@ -60,6 +60,22 @@ These patches were already present when this fork was created.
 - **Reason**: Telemetry opt-in state must persist across sessions. Storing in `SerializablePreferences` reuses the existing JSON serialisation / save path. Both fields are mobile-only and have no effect on the desktop build.
 - **Upstream PR**: N/A — mobile-specific
 
+### 8. Runtime cut_off clamp in Worldline SynthRequestWrapper
+
+- **Date**: 2026-04-14
+- **File**: OpenUtau.Core/Render/Worldline.cs (`SynthRequestWrapper` constructor, before `Validate()` call)
+- **Change**: Added a pre-validation clamp for positive `cut_off` values. If `total_ms - offset - cut_off < 10ms`, `cut_off` is reduced so that at least 10ms of audio remains. Logs `[0-4]` warning via Serilog. Negative `cut_off` (consonant-relative length) is unaffected.
+- **Reason**: On mobile, malformed OTO entries with `cutoff > usable audio` previously threw `CutOffExceedDurationError` and aborted rendering entirely. The clamp degrades gracefully to a slightly shorter render window rather than crashing. The warning log feeds into the 0-1 telemetry pipeline.
+- **Upstream PR**: N/A — defensive fix; upstream also throws, making this a mobile-specific mitigation
+
+### 9. Explicit cutoff > fileDuration check in VoicebankErrorChecker
+
+- **Date**: 2026-04-14
+- **File**: OpenUtau.Core/Classic/VoicebankErrorChecker.cs (`CheckOto()`, before the `cutoff` variable computation)
+- **Change**: Added early-return check: when `oto.Cutoff > 0 && oto.Cutoff > fileDuration`, reports a specific error message including the actual cutoff value, file duration, and a suggested safe cutoff (`≤ fileDuration - offset - max(consonant, 10) ms`). Returns `false` immediately to avoid cascading misleading "Cutoff must be to the right of X" errors.
+- **Reason**: Previously, a positive cutoff exceeding file duration would produce negative intermediate values, causing every downstream check to also fail with unrelated messages (e.g. "Cutoff must be to the right of preutter"). The new message gives voice bank authors the exact numbers they need to correct the OTO entry.
+- **Upstream PR**: Candidate for upstream submission — pure diagnostic improvement, no behaviour change at runtime
+
 ### Template for new entries
 
 - **Date**: YYYY-MM-DD

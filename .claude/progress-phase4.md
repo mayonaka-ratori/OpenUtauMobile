@@ -1,6 +1,6 @@
 # Phase 4 進捗レポート (Roadmap v3 Phase 0 実装)
 
-## ステータス: ✅ 0-2 COMPLETE (2026-04-14) / ✅ 0-1 COMPLETE (2026-04-14)
+## ステータス: ✅ 0-4 COMPLETE (2026-04-14) / ✅ 0-2 COMPLETE (2026-04-14) / ✅ 0-1 COMPLETE (2026-04-14)
 
 ---
 
@@ -68,3 +68,29 @@
 - `OpenUtauMobile/Views/EditPage.xaml.cs` — safeMode 時に `PreRender=false` + バナー表示
 - `OpenUtauMobile/Views/EditPage.Toolbar.cs` — `ButtonSafeModeExit_Clicked` ハンドラ追加
 - ビルド: 0 errors / テスト: 14/14 合格
+
+---
+
+## 0-4: cutoff 防御 + 修正候補提示
+
+| 変更ファイル | 内容 | ステータス |
+|-------------|------|----------|
+| `OpenUtau.Core/Render/Worldline.cs` (Core Patch #8) | `SynthRequestWrapper` コンストラクタに cut_off クランプ追加 | ✅ 2026-04-14 |
+| `OpenUtau.Core/Classic/VoicebankErrorChecker.cs` (Core Patch #9) | `CheckOto()` に cutoff > fileDuration の明示的チェック追加 | ✅ 2026-04-14 |
+| `docs/CORE_PATCHES.md` | パッチ #8 / #9 記録 | ✅ 2026-04-14 |
+
+### 設計方針
+
+**ランタイム (Patch #8):**
+- `cut_off > 0` かつ `total_ms - offset - cut_off < 10ms` のとき、`cut_off` を `total_ms - offset - 10ms` にクランプ
+- `CutOffExceedDurationError` をスローせずレンダリングを継続 (音声ウィンドウ最低 10ms を確保)
+- `Log.Warning("[0-4] ...")` でクランプ量を記録 → 0-1 テレメトリログに `[0-4]` タグで収集
+
+**インポート時 (Patch #9):**
+- `oto.Cutoff > 0 && oto.Cutoff > fileDuration` の場合、早期 `return false`
+- メッセージ例: `"Cutoff (450.0ms) exceeds file duration (380.0ms). Suggested cutoff ≤ 60.0ms."`
+- 根本原因を示す 1 メッセージに集約 (従来は下流の全チェックが連鎖的に誤メッセージを出力していた)
+
+### ビルド確認 (2026-04-14)
+- `dotnet build OpenUtauMobile.csproj -f net9.0-android -c Debug` → **0 エラー** / 1730 警告 (既存)
+- `dotnet test OpenUtauMobile.Tests/ -f net9.0` → **14/14 合格**

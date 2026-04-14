@@ -219,6 +219,19 @@ namespace OpenUtau.Classic {
                 });
                 valid = false;
             }
+            // 0-4: Explicit check for positive cutoff exceeding file duration.
+            // The downstream calculation (fileDuration - oto.Cutoff) would produce a negative
+            // cutoff position, causing every subsequent check to also fail with misleading messages.
+            // Detect it early and report the root cause with a suggested safe value.
+            if (oto.Cutoff > 0 && oto.Cutoff > fileDuration) {
+                double suggested = Math.Max(0.0, fileDuration - oto.Offset - Math.Max(oto.Consonant, 10.0));
+                Errors.Add(new VoicebankError() {
+                    trace = oto.FileTrace,
+                    message = $"Cutoff ({oto.Cutoff:F1}ms) exceeds file duration ({fileDuration:F1}ms). " +
+                              $"Suggested cutoff \u2264 {suggested:F1}ms.",
+                });
+                return false;
+            }
             double cutoff = oto.Cutoff < 0 ? oto.Offset - oto.Cutoff : fileDuration - oto.Cutoff;
             if (cutoff < oto.Offset + oto.Preutter) {
                 Errors.Add(new VoicebankError() {
